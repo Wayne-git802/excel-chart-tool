@@ -1,0 +1,1861 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 Excel 智能图表工具</title>
+    <link rel="stylesheet" href="/static/css/tailwind.css?v=__CACHEBUST__">
+    <script src="/static/js/alpine.min.js" defer></script>
+    <script src="/static/js/echarts.min.js"></script>
+    <style>
+        /* ===== Design System: Blue-White Clean ===== */
+        :root {
+            --bg-page: #f0f4ff;
+            --bg-card: #ffffff;
+            --border-card: #dbeafe;
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+        }
+
+        * { transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease; }
+
+        /* Card base */
+        .card {
+            background: #ffffff;
+            border: 1px solid #dbeafe;
+            border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(59,130,246,0.06);
+            padding: 24px;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: white;
+            font-weight: 500;
+            padding: 8px 24px;
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 2px 8px rgba(59,130,246,0.2);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #2563eb, #4f46e5);
+            box-shadow: 0 4px 16px rgba(59,130,246,0.3);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            color: #334155;
+            padding: 8px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-secondary:hover {
+            background: #e2e8f0;
+            border-color: #94a3b8;
+        }
+
+        /* Inputs & Selects */
+        select, input[type="text"] {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            color: #1e293b;
+            border-radius: 12px;
+            padding: 8px 12px;
+            width: 100%;
+            outline: none;
+            transition: all 0.3s;
+        }
+        select:focus, input[type="text"]:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+        select option {
+            background: #ffffff;
+            color: #1e293b;
+        }
+
+        /* Upload zone */
+        .upload-zone {
+            border: 2px dashed #93c5fd;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fafcff;
+        }
+        .upload-zone:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 0 30px rgba(59,130,246,0.08);
+            background: #f0f7ff;
+        }
+
+        /* Neon spinner */
+        .spinner-neon {
+            animation: spin 1s linear infinite;
+            border-radius: 50%;
+            border: 2px solid rgba(59,130,246,0.2);
+            border-top-color: #3b82f6;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Type badges */
+        .badge-numeric {
+            background: rgba(59,130,246,0.1);
+            color: #2563eb;
+            border: 1px solid rgba(59,130,246,0.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+        .badge-date {
+            background: rgba(16,185,129,0.1);
+            color: #059669;
+            border: 1px solid rgba(16,185,129,0.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+        .badge-category {
+            background: rgba(99,102,241,0.1);
+            color: #4f46e5;
+            border: 1px solid rgba(99,102,241,0.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+        .badge-chart-type {
+            background: rgba(59,130,246,0.12);
+            color: #2563eb;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        /* Steps */
+        .step-circle-active {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.875rem; font-weight: bold;
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            box-shadow: 0 0 12px rgba(59,130,246,0.3);
+            color: white;
+        }
+        .step-circle-inactive {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.875rem; font-weight: bold;
+            background: #e2e8f0;
+            color: #94a3b8;
+        }
+        .step-line-active {
+            background: linear-gradient(90deg, #3b82f6, #6366f1);
+        }
+        .step-line-inactive {
+            background: #e2e8f0;
+        }
+
+        /* Table */
+        .table-header {
+            background: #f1f5f9;
+            color: #334155;
+        }
+        .table-row {
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .table-row:hover {
+            background: #f8fafc;
+        }
+
+        /* Recommendation cards */
+        .rec-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            background: #ffffff;
+            transition: all 0.3s;
+        }
+        .rec-card:hover {
+            border-color: #2563eb;
+            transform: scale(1.02);
+            box-shadow: 0 4px 16px rgba(59,130,246,0.08);
+        }
+
+        /* Template cards */
+        .tpl-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+        }
+        .tpl-card:hover {
+            border-color: #2563eb;
+            box-shadow: 0 2px 12px rgba(59,130,246,0.06);
+        }
+
+        /* Chart preview */
+        .chart-preview-container {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+        }
+
+        /* Export preview */
+        .export-bg {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+        }
+
+        /* Error banner */
+        .error-banner {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 12px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        [x-cloak] { display: none !important; }
+
+        input[type="checkbox"] { accent-color: #3b82f6; }
+
+        /* ═══════════════════════════════════════════════
+           ChatPanel
+           ═══════════════════════════════════════════════ */
+        .app-layout {
+            display: flex;
+            height: calc(100vh - 140px);
+            gap: 0;
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+        .chat-panel {
+            width: 380px;
+            min-width: 340px;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid #e2e8f0;
+            background: #f8fafc;
+            border-radius: 0 16px 16px 0;
+            overflow: hidden;
+            order: 1;
+            transition: width 0.3s ease, min-width 0.3s ease;
+            position: relative;
+        }
+        .chat-panel.collapsed {
+            width: 44px;
+            min-width: 44px;
+        }
+        .chat-toggle {
+            position: absolute;
+            left: 0; top: 50%;
+            transform: translateY(-50%);
+            width: 28px; height: 64px;
+            background: #dbeafe;
+            border: 1px solid #93c5fd;
+            border-radius: 0 6px 6px 0;
+            color: #2563eb;
+            font-size: 0.75rem;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 10;
+            transition: background 0.2s;
+            writing-mode: vertical-rl;
+            letter-spacing: 2px;
+        }
+        .chat-toggle:hover { background: #bfdbfe; }
+        .chat-panel-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding-left: 10px;
+        }
+        .main-area {
+            flex: 1;
+            min-width: 0;
+            padding: 0 24px 0 0;
+            overflow-y: auto;
+            order: 0;
+        }
+        .chat-msg-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .chat-bubble {
+            max-width: 90%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .chat-bubble.agent {
+            align-self: flex-start;
+            background: #ffffff;
+            border: 1px solid #dbeafe;
+            color: #334155;
+        }
+        .chat-bubble.user {
+            align-self: flex-end;
+            background: #3b82f6;
+            border: 1px solid #2563eb;
+            color: #ffffff;
+        }
+        .chat-input-bar {
+            padding: 12px 16px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+        .chat-input-bar textarea {
+            flex: 1;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 8px 12px;
+            color: #1e293b;
+            font-size: 0.875rem;
+            resize: none;
+            min-height: 38px;
+            max-height: 120px;
+            outline: none;
+        }
+        .chat-input-bar textarea:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+        .thinking-fold {
+            margin-top: 8px;
+            border-left: 2px solid #93c5fd;
+            padding-left: 10px;
+            font-size: 0.8125rem;
+        }
+        .thinking-l1 { color: #2563eb; margin-bottom: 4px; }
+        .thinking-l2 { color: #64748b; margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+        .thinking-toggle {
+            font-size: 0.75rem; color: #64748b; cursor: pointer;
+            background: none; border: none; padding: 2px 0; margin-top: 4px;
+        }
+        .thinking-toggle:hover { color: #2563eb; }
+        .confidence-dot {
+            display: inline-block; width: 8px; height: 8px;
+            border-radius: 50%; margin-left: 6px;
+        }
+        .confidence-dot.high { background: #22c55e; }
+        .confidence-dot.medium { background: #eab308; }
+        .confidence-dot.low { background: #ef4444; }
+        .chat-quick-actions {
+            display: flex; gap: 6px; padding: 4px 16px 8px;
+        }
+        .chat-quick-actions button {
+            font-size: 0.75rem; padding: 4px 10px;
+            border-radius: 14px;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            color: #475569;
+            cursor: pointer; white-space: nowrap;
+        }
+        .chat-quick-actions button:hover {
+            background: #dbeafe; color: #2563eb;
+            border-color: #2563eb;
+        }
+        /* InsightCard */
+        .insight-card {
+            margin-top: 8px; padding: 10px 12px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 0.8125rem;
+        }
+        .insight-card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .insight-card-title { color: #1e293b; font-weight: 600; }
+        .insight-card-type {
+            font-size: 0.6875rem; padding: 2px 8px; border-radius: 4px;
+            background: rgba(99,102,241,0.1); color: #4f46e5;
+        }
+        .insight-conf-bar {
+            height: 4px; border-radius: 2px;
+            background: #e2e8f0; margin-bottom: 6px; overflow: hidden;
+        }
+        .insight-conf-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+        .insight-source-tag {
+            font-size: 0.6875rem; padding: 2px 6px; border-radius: 4px;
+            background: rgba(59,130,246,0.1); color: #2563eb; margin-right: 4px;
+        }
+        .insight-desc { color: #475569; margin-top: 6px; margin-bottom: 8px; line-height: 1.4; }
+        .insight-gen-btn {
+            font-size: 0.75rem; padding: 5px 14px; border-radius: 8px;
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: white; border: none; cursor: pointer; transition: all 0.2s;
+        }
+        .insight-gen-btn:hover {
+            background: linear-gradient(135deg, #2563eb, #4f46e5);
+            box-shadow: 0 0 12px rgba(59,130,246,0.3);
+        }
+        /* Mode Toggle */
+        .mode-toggle { display: flex; gap: 4px; background: #f1f5f9; border-radius: 12px; padding: 3px; }
+        .mode-btn { padding: 6px 14px; border: none; border-radius: 10px; font-size: 0.75rem; font-weight: 500; cursor: pointer; background: transparent; color: #64748b; transition: all 0.2s; }
+        .mode-btn.active { background: #ffffff; color: #2563eb; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .mode-btn:hover:not(.active) { color: #334155; }
+        .insight-badge { font-size: 0.65rem; padding: 2px 8px; border-radius: 8px; display: inline-block; }
+        .insight-badge.trend { background: rgba(16,185,129,0.1); color: #059669; }
+        .insight-badge.outlier { background: rgba(239,68,68,0.1); color: #dc2626; }
+        .insight-badge.correlation { background: rgba(99,102,241,0.1); color: #4f46e5; }
+        .insight-badge.distribution { background: rgba(6,182,212,0.1); color: #0891b2; }
+        .insight-badge.seasonal { background: rgba(245,158,11,0.1); color: #d97706; }
+        .insight-score { font-size: 0.7rem; color: #2563eb; }
+        .insight-meta { font-size: 0.65rem; color: #64748b; }
+
+    </style>
+</head>
+<body class="min-h-screen" style="background: linear-gradient(135deg, #f0f4ff, #f8fafc); color: #1e293b;" x-data="app()">
+    <!-- Header -->
+    <header style="position: sticky; top: 0; z-index: 50; background: rgba(255,255,255,0.9); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-bottom: 1px solid #dbeafe; padding: 16px 24px;">
+        <div style="max-width: 1152px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between;">
+            <h1 style="font-size: 1.25rem; font-weight: bold; background: linear-gradient(90deg, #2563eb, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 8px rgba(59,130,246,0.15));">📊 Excel 智能图表工具</h1>
+            <span style="font-size: 0.875rem; color: #64748b;">让数据说话，图表好看是硬道理</span>
+        </div>
+    </header>
+
+    <!-- Steps Indicator -->
+    <div style="max-width: 1152px; margin: 0 auto; padding: 16px 24px;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 16px;">
+            <div style="display: flex; align-items: center; gap: 8px;" :class="step >= 1 ? 'text-blue-400' : 'text-gray-500'">
+                <span :class="step >= 1 ? 'step-circle-active' : 'step-circle-inactive'">1</span>
+                <span style="font-size: 0.875rem; font-weight: 500;">上传数据</span>
+            </div>
+            <div style="width: 48px; height: 2px;" :class="step >= 2 ? 'step-line-active' : 'step-line-inactive'"></div>
+            <div style="display: flex; align-items: center; gap: 8px;" :class="step >= 2 ? 'text-blue-400' : 'text-gray-500'">
+                <span :class="step >= 2 ? 'step-circle-active' : 'step-circle-inactive'">2</span>
+                <span style="font-size: 0.875rem; font-weight: 500;">分析推荐</span>
+            </div>
+            <div style="width: 48px; height: 2px;" :class="step >= 3 ? 'step-line-active' : 'step-line-inactive'"></div>
+            <div style="display: flex; align-items: center; gap: 8px;" :class="step >= 3 ? 'text-blue-400' : 'text-gray-500'">
+                <span :class="step >= 3 ? 'step-circle-active' : 'step-circle-inactive'">3</span>
+                <span style="font-size: 0.875rem; font-weight: 500;">生成图表</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════ Chat Layout ══════════════════════════ -->
+    <div class="app-layout">
+        
+        <!-- 💬 ChatPanel -->
+        <div class="chat-panel" :class="{ collapsed: chatCollapsed }">
+            <!-- Toggle button -->
+            <div class="chat-toggle" @click="chatCollapsed = !chatCollapsed"
+                 x-text="chatCollapsed ? '◀' : '▶'"
+                 :title="chatCollapsed ? '展开聊天' : '折叠聊天'"></div>
+            <!-- Collapsible content -->
+            <div class="chat-panel-content" x-show="!chatCollapsed">
+            <!-- Welcome state / instruction -->
+            <div x-show="messages.length === 0" style="flex:1; display:flex; align-items:center; justify-content:center; padding:24px; text-align:center;">
+                <div>
+                    <div style="font-size: 3rem; margin-bottom: 12px;">📊</div>
+                    <p style="color: #2563eb; font-weight: 600; margin-bottom: 8px;">AI图表助手</p>
+                    <p style="color: #64748b; font-size: 0.875rem; line-height: 1.6;">上传 Excel 后，我会自动分析数据。<br>你也可以直接跟我说想看什么图表 👇</p>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div class="chat-msg-list" id="chatMsgList" x-show="messages.length > 0">
+                <template x-for="msg in messages" :key="msg.id">
+                    <div>
+                        <!-- Agent bubble -->
+                        <div x-show="msg.role === 'agent'" class="chat-bubble agent" style="display: flex; flex-direction: column;">
+                            <span style="font-size:0.75rem;color:#6b7280;margin-bottom:4px;">📊 AI图表助手</span>
+                            <span x-text="msg.content" style="white-space: pre-wrap;"></span>
+                            <!-- Message action buttons -->
+                            <template x-if="msg.actions">
+                                <div style="display:flex;gap:10px;margin-top:12px;">
+                                    <template x-for="act in msg.actions" :key="act.label">
+                                        <button @click="handleMessageAction(msg, act)"
+                                                :style="act.dismiss
+                                                    ? 'flex:1;padding:12px 10px;border-radius:12px;border:1px solid #e2e8f0;cursor:pointer;text-align:center;transition:all 0.25s;background:#fafcff;backdrop-filter:blur(8px);'
+                                                    : 'flex:1;padding:12px 10px;border-radius:12px;border:1px solid rgba(59,130,246,0.2);cursor:pointer;text-align:center;transition:all 0.25s;background:rgba(59,130,246,0.08);backdrop-filter:blur(8px);'"
+                                                onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(59,130,246,0.15)';"
+                                                onmouseout="this.style.transform='';this.style.boxShadow='';">
+                                            <div style="font-size:1.25rem;margin-bottom:4px;" x-text="act.icon || ''"></div>
+                                            <div style="font-size:0.875rem;font-weight:500;margin-bottom:2px;"
+                                                 :style="act.dismiss ? 'color:#64748b;' : 'color:#93c5fd;'"
+                                                 x-text="act.label"></div>
+                                            <div x-show="act.desc" style="font-size:0.6875rem;color:#6b7280;line-height:1.3;" x-text="act.desc"></div>
+                                        </button>
+                                    </template>
+                                </div>
+                            </template>
+                            <!-- Thinking fold -->
+                            <template x-if="getThinking(msg.id)">
+                                <div class="thinking-fold">
+                                    <div class="thinking-l1">
+                                        💡 <span x-text="getThinking(msg.id).level1"></span>
+                                        <span class="confidence-dot" :class="getThinking(msg.id).confidence"></span>
+                                    </div>
+                                    <button class="thinking-toggle"
+                                            @click="toggleThinking(msg.id)"
+                                            x-text="getThinking(msg.id).expanded ? '收起 ▲' : '🧠 推理过程 ▼'"></button>
+                                    <div class="thinking-l2" x-show="getThinking(msg.id).expanded">
+                                        <template x-for="step in getThinking(msg.id).level2">
+                                            <div x-text="step" style="margin-bottom:2px;"></div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                            <!-- Chart card -->
+                            <template x-if="chartCards[msg.id]">
+                                <div style="margin-top:8px; padding:8px; background:#f1f5f9; border-radius:8px; border:1px solid #dbeafe;">
+                                    <div style="display:flex;align-items:center;justify-content:space-between;">
+                                        <span style="font-size:0.75rem;color:#93c5fd;">📊 <span x-text="chartCards[msg.id].title"></span></span>
+                                        <button @click="viewChartFromChat(msg.id)" style="font-size:0.75rem;color:#60a5fa;background:none;border:none;cursor:pointer;">🔍 查看</button>
+                                    </div>
+                                </div>
+                            </template>
+                            <!-- InsightCards (Batch 3 v2) -->
+                            <template x-if="msg.insights">
+                                <div style="margin-top:8px;">
+                                    <div style="font-size:0.75rem;color:#60a5fa;margin-bottom:6px;">💡 发现 <span x-text="msg.insights?.length || 0"></span> 条洞察：</div>
+                                    <template x-for="ins in (msg.insights || []).slice(0,3)" :key="ins.title">
+                                        <div class="insight-card">
+                                            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                                                <span :class="'insight-badge ' + ins.type" x-text="ins.type"></span>
+                                                <span class="insight-score">★ <span x-text="ins.score.toFixed(2)"></span></span>
+                                                <span class="insight-meta" x-show="ins.source_count > 1" x-text="'×' + ins.source_count"></span>
+                                            </div>
+                                            <div style="font-size:0.8rem;font-weight:500;margin-bottom:2px;" x-text="ins.title"></div>
+                                            <div style="display:flex;gap:6px;margin-top:6px;">
+                                                <button @click="insightToChart(ins)" style="font-size:0.65rem;padding:3px 8px;border-radius:6px;background:linear-gradient(90deg,#3b82f6,#8b5cf6);color:white;border:none;cursor:pointer;">📈 生成图表</button>
+                                                <button @click="followUpInsight(ins)" style="font-size:0.65rem;padding:3px 8px;border-radius:6px;background:rgba(96,165,250,0.1);color:#60a5fa;border:1px solid rgba(96,165,250,0.2);cursor:pointer;">💬 追问</button>
+                                                <button @click="reframeInsight(ins)" style="font-size:0.65rem;padding:3px 8px;border-radius:6px;background:rgba(96,165,250,0.05);color:#93c5fd;border:1px solid rgba(96,165,250,0.1);cursor:pointer;">🔄 换个角度</button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            <!-- Insight message (standalone) -->
+                            <template x-if="msg.role === 'insight'">
+                            <div class="chat-bubble agent" style="display:flex;flex-direction:column;">
+                                <span style="font-size:0.75rem;color:#6b7280;margin-bottom:4px;">📊 AI图表助手</span>
+                                <div style="font-size:0.8rem;margin-bottom:8px;">💡 发现 <span x-text="msg.insights?.length || 0"></span> 条数据洞察：</div>
+                                <template x-for="ins in (msg.insights || []).slice(0,3)" :key="ins.title">
+                                    <div class="insight-card">
+                                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                                            <span :class="'insight-badge ' + ins.type" x-text="ins.type"></span>
+                                            <span class="insight-score">★ <span x-text="ins.score.toFixed(2)"></span></span>
+                                            <span class="insight-meta" x-show="ins.source_count > 1" x-text="'×' + ins.source_count + ' 共识'"></span>
+                                        </div>
+                                        <div style="font-size:0.8rem;font-weight:500;margin-bottom:2px;" x-text="ins.title"></div>
+                                        <div style="display:flex;gap:6px;margin-top:6px;">
+                                            <button @click="insightToChart(ins)" style="font-size:0.65rem;padding:3px 8px;border-radius:6px;background:linear-gradient(90deg,#3b82f6,#8b5cf6);color:white;border:none;cursor:pointer;">📈 生成图表</button>
+                                            <button @click="followUpInsight(ins)" style="font-size:0.65rem;padding:3px 8px;border-radius:6px;background:rgba(96,165,250,0.1);color:#60a5fa;border:1px solid rgba(96,165,250,0.2);cursor:pointer;">💬 追问</button>
+                                            <button @click="reframeInsight(ins)" style="font-size:0.65rem;padding:3px 8px;border-radius:6px;background:rgba(96,165,250,0.05);color:#93c5fd;border:1px solid rgba(96,165,250,0.1);cursor:pointer;">🔄 换个角度</button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                            </template>
+
+                        </div>
+                        <!-- User bubble -->
+                        <div x-show="msg.role === 'user'" class="chat-bubble user" style="display:flex;flex-direction:column;">
+                            <span style="font-size:0.75rem;color:#6b7280;margin-bottom:4px;text-align:right;">你</span>
+                            <span x-text="msg.content" style="white-space:pre-wrap;"></span>
+                        </div>
+                    </div>
+                </template>
+                <!-- Typing indicator -->
+                <div x-show="chatting" class="chat-bubble agent" style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:0.75rem;color:#6b7280;">📊 AI图表助手</span>
+                    <span style="color:#60a5fa;font-size:0.875rem;">⏳ 正在分析...</span>
+                </div>
+            </div>
+
+            <!-- Quick actions -->
+            <div class="chat-quick-actions" x-show="filePath">
+                <button @click="quickChat('分析数据趋势')">📈 分析趋势</button>
+                <button @click="quickChat('分析分类差异')">📊 分类对比</button>
+                <button @click="quickChat('检查异常模式')">⚠ 检查异常</button>
+                <button @click="quickChat('分析数据分布')">🔗 数据分布</button>
+            </div>
+
+            <!-- Input -->
+            <div class="chat-input-bar">
+                <textarea x-model="chatInput"
+                          @keydown.enter.prevent="if(!$event.shiftKey){ sendMessage(); }"
+                          placeholder="输入你想看的图表..."
+                          :disabled="chatting"
+                          rows="1"
+                          style="flex:1;"></textarea>
+                <button @click="sendMessage()"
+                        :disabled="chatting || !chatInput.trim()"
+                        style="padding:8px 16px;background:linear-gradient(90deg,#3b82f6,#8b5cf6);color:white;border:none;border-radius:10px;font-size:0.875rem;cursor:pointer;white-space:nowrap;"
+                        :style="(chatting || !chatInput.trim()) ? 'opacity:0.5;cursor:not-allowed;' : ''">
+                    <span x-show="!chatting">发送</span>
+                    <span x-show="chatting">⏳</span>
+                </button>
+            </div>
+            </div><!-- .chat-panel-content -->
+        </div>
+
+        <!-- 📊 MainArea -->
+        <div class="main-area">
+    <main style="max-width: none; margin: 0; padding: 0 24px 48px;">
+        
+        <!-- Global Error Banner -->
+        <div x-show="error" style="margin-bottom: 16px; padding: 16px;" class="error-banner" style="display: flex; align-items: flex-start; gap: 12px;">
+            <span style="font-size: 1.25rem; margin-top: 2px;">⚠️</span>
+            <div style="flex: 1;">
+                <p style="font-size: 0.875rem; font-weight: 600; color: #fca5a5;">操作失败</p>
+                <p style="font-size: 0.875rem; color: #f87171; margin-top: 4px;" x-text="error"></p>
+            </div>
+            <button @click="error = ''" style="color: #f87171; font-size: 1.25rem; line-height: 1; transition: color 0.3s;" onmouseover="this.style.color='#fca5a5'" onmouseout="this.style.color='#f87171'">&times;</button>
+        </div>
+
+        <!-- Step 1: Upload -->
+        <div x-show="step === 1" class="card" style="max-width: 672px; margin: 32px auto 0;">
+            <h2 style="font-size: 1.125rem; font-weight: 600; color: #1e293b; margin-bottom: 16px;">📂 上传 Excel / CSV 文件</h2>
+            
+            <div class="upload-zone" style="position:relative;"
+                 @click="!filePath && $refs.fileInput.click()" @dragover.prevent @drop.prevent="handleDrop($event)">
+                <!-- X delete button -->
+                <button x-show="filePath" @click.stop="clearFile()"
+                    style="position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;
+                           background:#e2e8f0;border:1px solid #cbd5e1;color:#64748b;
+                           font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;"
+                    title="删除文件">✕</button>
+                <!-- Empty state -->
+                <div x-show="!filePath" style="text-align:center;">
+                    <div style="font-size: 3rem; margin-bottom: 12px;">📁</div>
+                    <p style="color: #334155; margin-bottom: 4px;">拖拽文件到此处，或点击上传</p>
+                    <p style="color: #6b7280; font-size: 0.875rem;">支持 .xlsx / .xls / .csv，最大 50MB</p>
+                </div>
+                <!-- Loaded state -->
+                <div x-show="filePath" style="text-align:center;">
+                    <div style="font-size: 3rem; margin-bottom: 8px;">📊</div>
+                    <p style="color: #3b82f6; margin-bottom: 4px; font-weight: 500;" x-text="filePath.split('/').pop().split('\\\\').pop()"></p>
+                    <p style="color: #6b7280; font-size: 0.8rem;">✅ 文件已加载 · 点击重新上传</p>
+                </div>
+                <input type="file" x-ref="fileInput" @change="uploadFile($event)" class="hidden">
+            </div>
+
+            <div x-show="uploading" style="margin-top: 16px; text-align: center; color: #3b82f6;">
+                <div class="spinner-neon" style="display: inline-block; width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;"></div>
+                正在上传和分析...
+            </div>
+
+            <!-- Sheet Selection -->
+            <div x-show="sheets.length > 0" style="margin-top: 24px;">
+                <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #334155; margin-bottom: 8px;">选择工作表：</label>
+                <select x-model="selectedSheet" style="width: 256px;">
+                    <option value="">-- 请选择 Sheet --</option>
+                    <template x-for="s in sheets" :key="s">
+                        <option :value="s" x-text="s"></option>
+                    </template>
+                </select>
+                <button class="btn-primary" style="margin-left: 16px;" @click="analyzeSheet()" :disabled="!selectedSheet">
+                    开始分析 →
+                </button>
+            </div>
+
+            <div x-show="error" style="margin-top: 16px; padding: 16px;" class="error-banner" style="display: flex; align-items: flex-start; gap: 12px;">
+                <span>⚠️</span>
+                <div style="flex: 1;">
+                    <p style="font-size: 0.875rem; font-weight: 500; color: #fca5a5;">上传失败</p>
+                    <p style="font-size: 0.875rem; color: #f87171; margin-top: 4px;" x-text="error"></p>
+                </div>
+                <button @click="error = ''" style="color: #f87171; font-size: 1.125rem; line-height: 1;">&times;</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Analysis & Recommendation -->
+        <div x-show="step === 2">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                <button @click="goBack()" style="display: inline-flex; align-items: center; gap: 6px; background: #f1f5f9; border: 1px solid #cbd5e1; color: #64748b; padding: 8px 16px; border-radius: 8px; font-size: 0.875rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#e5e7eb'" onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.color='#9ca3af'">← 返回</button>
+                <span style="color: #6b7280; font-size: 0.875rem;">步骤 2 / 3</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr; gap: 24px;">
+
+                <!-- AI Recommendations (moved to top) -->
+                <div class="card">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                        <h2 style="font-size: 1.125rem; font-weight: 600; color: #1e293b;">🤖 AI 图表推荐</h2>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn-primary" @click="getRecommendations()" :disabled="loadingRec">
+                                <span x-show="!loadingRec">🔮 获取 AI 推荐</span>
+                                <span x-show="loadingRec">分析中...</span>
+                            </button>
+                            <button class="btn-secondary" @click="goToStep3()">
+                                跳过，直接选图 →
+                            </button>
+                        </div>
+                    </div>
+                    <div x-show="loadingRec" style="color: #3b82f6; font-size: 0.875rem; margin-top: 12px;">
+                        <div class="spinner-neon" style="display: inline-block; width: 16px; height: 16px; margin-right: 8px; vertical-align: middle;"></div>
+                        AI 分析中...
+                    </div>
+                    <div x-show="recommendations.length === 0 && !loadingRec" style="color: #6b7280; font-size: 0.875rem; margin-top: 12px;">
+                        点击「获取 AI 推荐」让 AI 帮你选图表
+                    </div>
+                    <div x-show="recommendations.length > 0" style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px;">
+                        <template x-for="(rec, idx) in recommendations" :key="idx">
+                            <div class="rec-card" @click="applyRecommendation(rec)" style="flex: 1; min-width: 220px; max-width: 360px;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="font-weight: 500; font-size: 0.875rem; color: #1e293b;" x-text="rec.type_cn"></span>
+                                    <span class="badge-chart-type" x-text="rec.type"></span>
+                                </div>
+                                <p style="font-size: 0.75rem; color: #64748b;" x-text="rec.reason"></p>
+                                <p style="font-size: 0.75rem; color: #6b7280; margin-top: 4px;">X: <span x-text="rec.x"></span> | Y: <span x-text="(rec.y||[]).join(', ')"></span></p>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Column Info / Data Preview -->
+                <div class="card">
+                    <h2 style="font-size: 1.125rem; font-weight: 600; color: #1e293b; margin-bottom: 16px;">
+                        📋 数据分析 — <span x-text="selectedSheet"></span>
+                        <span style="font-size: 0.875rem; color: #64748b; font-weight: 400; margin-left: 8px;" x-text="rowCount + ' 行 · ' + colCount + ' 列'"></span>
+                    </h2>
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; font-size: 0.875rem;">
+                            <thead class="table-header">
+                                <tr>
+                                    <th style="padding: 8px 12px; text-align: left; color: #334155;">列名</th>
+                                    <th style="padding: 8px 12px; text-align: left; color: #334155;">类型</th>
+                                    <th style="padding: 8px 12px; text-align: right; color: #334155;">空值</th>
+                                    <th style="padding: 8px 12px; text-align: right; color: #334155;">唯一值</th>
+                                    <th style="padding: 8px 12px; text-align: right; color: #334155;">最小值</th>
+                                    <th style="padding: 8px 12px; text-align: right; color: #334155;">最大值</th>
+                                    <th style="padding: 8px 12px; text-align: right; color: #334155;">均值</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="col in columns" :key="col.name">
+                                    <tr class="table-row">
+                                        <td style="padding: 8px 12px; font-weight: 500; color: #1e293b;" x-text="col.name"></td>
+                                        <td style="padding: 8px 12px;"><span
+                                            :class="(col.dtype.indexOf('int') > -1 || col.dtype.indexOf('float') > -1) ? 'badge-numeric' :
+                                                    col.dtype.indexOf('date') > -1 ? 'badge-date' :
+                                                    'badge-category'"
+                                            x-text="col.dtype_cn"></span></td>
+                                        <td style="padding: 8px 12px; text-align: right; color: #64748b;" x-text="col.null_pct + '%'"></td>
+                                        <td style="padding: 8px 12px; text-align: right; color: #64748b;" x-text="col.unique_count"></td>
+                                        <td style="padding: 8px 12px; text-align: right; color: #64748b;" x-text="col.min != null ? col.min : '-'"></td>
+                                        <td style="padding: 8px 12px; text-align: right; color: #64748b;" x-text="col.max != null ? col.max : '-'"></td>
+                                        <td style="padding: 8px 12px; text-align: right; color: #64748b;" x-text="col.mean != null ? col.mean : '-'"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Chart Builder -->
+        <div x-show="step === 3">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                <button @click="goBack()" style="display: inline-flex; align-items: center; gap: 6px; background: #f1f5f9; border: 1px solid #cbd5e1; color: #64748b; padding: 8px 16px; border-radius: 8px; font-size: 0.875rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.color='#e5e7eb'" onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.color='#9ca3af'">← 返回</button>
+                <span style="color: #6b7280; font-size: 0.875rem;">步骤 3 / 3</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start;">
+                <!-- Controls -->
+                <div class="card">
+                    <h2 style="font-size: 1.125rem; font-weight: 600; color: #1e293b; margin-bottom: 16px;">🎨 图表配置</h2>
+                    
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #334155; margin-bottom: 4px; margin-top: 12px;">图表标题</label>
+                    <input type="text" x-model="chartTitle" placeholder="输入图表标题">
+
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #334155; margin-bottom: 4px; margin-top: 12px;">图表类型</label>
+                    <select x-model="chartType" @change="onChartTypeChange()">
+                        <option value="bar">柱状图</option>
+                        <option value="line">折线图</option>
+                        <option value="pie">饼图</option>
+                        <option value="scatter">散点图</option>
+                        <option value="stacked_bar">堆叠柱状图</option>
+                        <option value="grouped_bar">分组柱状图</option>
+                        <option value="boxplot">箱线图</option>
+                        <option value="histogram">直方图</option>
+                        <option value="heatmap">热力图</option>
+                        <option value="scatter_matrix">散点矩阵</option>
+                        <option value="bubble">气泡图</option>
+                        <option value="funnel">漏斗图</option>
+                        <option value="treemap">矩形树图</option>
+                        <option value="area">面积图</option>
+                        <option value="radar">雷达图</option>
+                        <option value="gauge">仪表盘</option>
+                    </select>
+
+                    <!-- X Axis (hidden for chart types that don't need it) -->
+                    <div x-show="needsXAxis()" style="margin-top: 12px;">
+                        <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #334155; margin-bottom: 4px;">
+                            X 轴 <span style="font-size: 0.75rem; color: #6b7280; font-weight: 400;" x-text="xAxisHint()"></span>
+                        </label>
+                        <select x-model="xColumn">
+                            <option value="">-- 选择列 --</option>
+                            <template x-for="col in xAxisColumns()" :key="col.name">
+                                <option :value="col.name" x-text="col.name + ' (' + col.dtype_cn + ')'"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <!-- Y Axis (single/multi based on chart type) -->
+                    <div style="margin-top: 12px;">
+                        <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #334155; margin-bottom: 4px;">
+                            <span x-text="yAxisLabel()"></span>
+                            <span style="font-size: 0.75rem; color: #6b7280; font-weight: 400;" x-text="yAxisHint()"></span>
+                        </label>
+                        <div style="max-height: 160px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 12px; padding: 8px;">
+                            <template x-for="col in yAxisColumns()" :key="col.name">
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.875rem; cursor: pointer; color: #334155; border-radius: 4px; padding-left: 4px; padding-right: 4px;"
+                                       onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='transparent'">
+                                    <input type="checkbox" :value="col.name" x-model="yColumns" style="border-radius: 4px;"
+                                           @change="onYAxisChange(col)">
+                                    <span x-text="col.name"></span>
+                                    <span style="font-size: 0.75rem; color: #6b7280;" x-text="'(' + col.dtype_cn + ')'"></span>
+                                </label>
+                            </template>
+                        </div>
+                        <p x-show="yAxisColumns().length === 0" style="font-size: 0.75rem; color: #f87171; margin-top: 4px;">⚠ 未检测到可用的数值列</p>
+                    </div>
+
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #334155; margin-bottom: 4px; margin-top: 12px;">配色方案</label>
+                    <select x-model="theme">
+                        <option value="business">商务蓝</option>
+                        <option value="finance">财务绿</option>
+                        <option value="vibrant">活力橙</option>
+                        <option value="elegant">雅致灰</option>
+                        <option value="purple">渐变紫</option>
+                        <option value="monochrome">极简黑白</option>
+                    </select>
+
+                    <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #334155; margin-bottom: 4px; margin-top: 12px;">样式模板</label>
+                    <select x-model="styleTemplate">
+                        <option value="clean">✦ 商务简约</option>
+                        <option value="neon">◈ 暗色科技</option>
+                        <option value="gradient">◆ 渐变立体</option>
+                        <option value="vivid">● 清新活力</option>
+                        <option value="minimal">─ 极简线条</option>
+                        <option value="magazine">▣ 杂志风</option>
+                    </select>
+
+                    <button class="btn-primary" style="width: 100%; margin-top: 24px;" @click="generateChart()" :disabled="generating">
+                        <span x-show="!generating">🎨 生成图表</span>
+                        <span x-show="generating">
+                            <div style="display: inline-block; width: 16px; height: 16px; border: 2px solid #cbd5e1; border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; vertical-align: middle;"></div>
+                            生成中...
+                        </span>
+                    </button>
+
+                    <button class="btn-secondary" style="width: 100%; margin-top: 8px;" @click="saveTemplate()" x-show="chartHTML">
+                        💾 保存为模板
+                    </button>
+
+                    <button class="btn-secondary" style="width: 100%; margin-top: 8px;" @click="exportPNG()" x-show="chartHTML">
+                        📥 导出 PNG (150 DPI)
+                    </button>
+                    <button class="btn-secondary" style="width: 100%; margin-top: 8px;" @click="exportPNGHD()" x-show="chartHTML">
+                        🖼️ 导出 PNG (300 DPI)
+                    </button>
+                    <button class="btn-secondary" style="width: 100%; margin-top: 8px;" @click="exportPDF()" x-show="chartHTML">
+                        📄 导出 PDF
+                    </button>
+
+                    <!-- Template Gallery Toggle -->
+                    <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #e2e8f0;">
+                        <button style="width: 100%; text-align: left; display: flex; align-items: center; justify-content: space-between; font-size: 0.875rem; color: #64748b; transition: color 0.3s; background: none; border: none; cursor: pointer;"
+                                onmouseover="this.style.color='#60a5fa'" onmouseout="this.style.color='#9ca3af'"
+                                @click="showTemplateGallery = !showTemplateGallery; if (showTemplateGallery) loadTemplates()">
+                            <span>📂 模板画廊</span>
+                            <span x-text="showTemplateGallery ? '▾' : '▸'"></span>
+                        </button>
+                    </div>
+
+                    <!-- Template Gallery Cards -->
+                    <div x-show="showTemplateGallery" style="margin-top: 12px; max-height: 320px; overflow-y: auto;">
+                        <!-- Empty State -->
+                        <div x-show="templates.length === 0" style="text-align: center; padding: 16px 0; color: #6b7280; font-size: 0.875rem;">
+                            <p>📭 还没有保存的模板</p>
+                            <p style="font-size: 0.75rem; margin-top: 4px;">生成图表后点击"💾 保存为模板"来创建</p>
+                        </div>
+                        <!-- Template Cards -->
+                        <template x-for="tpl in templates" :key="tpl.id">
+                            <div class="tpl-card">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="font-weight: 500; font-size: 0.875rem; color: #1e293b;" x-text="tpl.name"></span>
+                                    <span class="badge-chart-type" x-text="tpl.chart_type"></span>
+                                </div>
+                                <p style="font-size: 0.75rem; color: #6b7280; margin-bottom: 8px;" x-text="'创建于 ' + (tpl.created_at ? tpl.created_at.slice(0, 16) : '')"></p>
+                                <div style="display: flex; gap: 8px;">
+                                    <button style="flex: 1; font-size: 0.75rem; padding: 6px 12px; border-radius: 12px; background: linear-gradient(135deg, #3b82f6, #a855f7); color: white; font-weight: 500; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(168,85,247,0.2); transition: all 0.3s;"
+                                            onmouseover="this.style.background='linear-gradient(135deg, #2563eb, #9333ea)'; this.style.boxShadow='0 4px 20px rgba(168,85,247,0.3)'"
+                                            onmouseout="this.style.background='linear-gradient(135deg, #3b82f6, #a855f7)'; this.style.boxShadow='0 4px 15px rgba(168,85,247,0.2)'"
+                                            @click="loadTemplate(tpl)">
+                                        📥 加载
+                                    </button>
+                                    <button style="flex: 1; font-size: 0.75rem; padding: 6px 12px; border-radius: 12px; background: rgba(239,68,68,0.1); color: #f87171; border: none; cursor: pointer; transition: all 0.3s;"
+                                            onmouseover="this.style.background='rgba(239,68,68,0.2)'"
+                                            onmouseout="this.style.background='rgba(239,68,68,0.1)'"
+                                            @click="deleteTemplate(tpl.id)">
+                                        🗑 删除
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Preview -->
+                <div class="card chart-preview-container" style="min-height: 500px; position: relative;">
+                    <!-- Loading Spinner -->
+                    <div x-show="generating" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(10,15,30,0.8); z-index: 10; border-radius: 16px;">
+                        <div style="text-align: center;">
+                            <div style="width: 40px; height: 40px; border: 4px solid rgba(59,130,246,0.3); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; box-shadow: 0 0 20px rgba(96,165,250,0.3);"></div>
+                            <p style="color: #3b82f6; font-weight: 500;">正在生成图表...</p>
+                        </div>
+                    </div>
+                    <!-- Empty State -->
+                    <div x-show="!generating && !chartHTML && !chartSpec" style="display: flex; align-items: center; justify-content: center; height: 100%; color: #6b7280;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 3.75rem; margin-bottom: 16px;">🎨</div>
+                            <p>配置图表参数后点击"生成图表"</p>
+                        </div>
+                    </div>
+                    <!-- Chart -->
+                    <div x-show="!generating && (chartHTML || chartSpec)" id="chartContainer"></div>
+                </div>
+            </div>
+
+            <!-- 🔍 Insights Panel (Batch 3) -->
+            <div x-show="insights.length > 0" style="margin-top: 24px;" class="card">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+                    <h3 style="font-size: 1rem; font-weight: 600;">🔍 数据洞察 <span class="insight-meta" x-text="'(' + insights.length + ' 条)'"></span></h3>
+                    <button x-show="!insightLoading" @click="runInsights()" style="font-size: 0.75rem; padding: 4px 12px; border-radius: 8px; background: rgba(59,130,246,0.1); color: #3b82f6; border: 1px solid rgba(59,130,246,0.2); cursor: pointer;">🔄 刷新</button>
+                </div>
+                <div x-show="insightLoading" style="text-align: center; padding: 20px; color: #6b7280;">⏳ 分析中...</div>
+                <template x-for="ins in insights" :key="ins.title">
+                    <div class="insight-card" style="cursor: pointer;" @click="insightToChart(ins)">
+                        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
+                            <div style="flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <span class="insight-badge" :class="ins.type" x-text="ins.type"></span>
+                                    <span class="insight-score">★ <span x-text="ins.score.toFixed(2)"></span></span>
+                                    <span class="insight-meta" x-show="ins.source_count > 1" x-text="'×' + ins.source_count + ' 检测器共识'"></span>
+                                </div>
+                                <div style="font-size: 0.875rem; font-weight: 500; margin-bottom: 4px;" x-text="ins.title"></div>
+                                <div class="insight-meta" x-text="ins.description || ''"></div>
+                            </div>
+                            <button style="font-size: 0.7rem; padding: 4px 10px; border-radius: 6px; background: linear-gradient(90deg,#3b82f6,#8b5cf6); color: white; border: none; cursor: pointer; flex-shrink: 0; white-space: nowrap;">
+                                📈 生成图表
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Export Preview Panel -->
+            <template x-if="exportPreview">
+            <div style="margin-top: 24px;" class="card export-bg" x-transition>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <h3 style="font-size: 1.125rem; font-weight: 600; color: #1e293b;">
+                        📥 导出预览 — <span style="color: #3b82f6;" x-text="exportPreview.format ? exportPreview.format.toUpperCase() : ''"></span>
+                    </h3>
+                    <div style="display: flex; gap: 8px;">
+                        <a :href="exportPreview.url" download class="btn-primary" style="font-size: 0.875rem; padding: 6px 16px;">
+                            💾 下载文件
+                        </a>
+                        <button @click="exportPreview = null" class="btn-secondary" style="font-size: 0.875rem; padding: 6px 16px;">
+                            ✕ 关闭
+                        </button>
+                    </div>
+                </div>
+                <!-- PNG preview -->
+                <div x-show="exportPreview.format === 'png' || exportPreview.format === 'png_hd'" 
+                     style="display: flex; align-items: center; justify-content: center;" class="export-bg" style="padding: 16px; min-height: 300px;">
+                    <img :src="exportPreview.url" style="max-width: 100%; box-shadow: 0 10px 15px rgba(96,165,250,0.1); border-radius: 12px; max-height: 70vh;"
+                         :alt="'导出图表 (' + exportPreview.format + ')'">
+                </div>
+                <!-- PDF preview -->
+                <div x-show="exportPreview.format === 'pdf'"
+                     class="export-bg" style="height: 600px;">
+                    <iframe :src="exportPreview.url" style="width: 100%; height: 100%; border-radius: 12px; border: 0;"></iframe>
+                </div>
+            </div>
+            </template>
+        </div>
+
+    </main>
+        </div><!-- .main-area -->
+    </div><!-- .app-layout -->
+
+    <script>
+        // ═══════════════════════════════════════════════════════
+        // SSEParser — 逐行状态机，任意 chunk 边界不丢事件
+        // ═══════════════════════════════════════════════════════
+        function SSEParser(onEvent) {
+            this.buffer = '';
+            this.currentEvent = null;
+            this.currentData = '';
+            this.onEvent = onEvent;
+
+            this.feed = function(chunk) {
+                var self = this;
+                self.buffer += chunk;
+                while (true) {
+                    var idx = self.buffer.indexOf('\n');
+                    if (idx === -1) break;
+                    var line = self.buffer.slice(0, idx);
+                    self.buffer = self.buffer.slice(idx + 1);
+                    if (line.length > 0 && line[line.length - 1] === '\r') {
+                        line = line.slice(0, -1);
+                    }
+                    if (line === '') {
+                        if (self.currentEvent !== null && self.currentData !== '') {
+                            var data = {};
+                            try { data = JSON.parse(self.currentData); } catch(e) {}
+                            self.onEvent(self.currentEvent, data);
+                        }
+                        self.currentEvent = null;
+                        self.currentData = '';
+                    } else if (line.indexOf('event: ') === 0) {
+                        self.currentEvent = line.slice(7);
+                    } else if (line.indexOf('data: ') === 0) {
+                        self.currentData = line.slice(6);
+                    }
+                }
+            };
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // ChartRenderer v3 — echarts.setOption(spec), no HTML hack
+        // ═══════════════════════════════════════════════════════
+        window.ChartRenderer = {
+            _instance: null,
+            _containerId: 'chartContainer',
+            _currentSpec: null,
+
+            render: function(spec, theme) {
+                var el = document.getElementById(this._containerId);
+                if (!el) {
+                    // Create container if not present
+                    var main = document.querySelector('.chart-preview-container');
+                    if (main) {
+                        el = document.createElement('div');
+                        el.id = this._containerId;
+                        el.style.width = '100%';
+                        el.style.height = '520px';
+                        main.appendChild(el);
+                    } else {
+                        return;
+                    }
+                }
+                el.style.display = 'block';
+
+                // Handle HTML-based charts (heatmap, scatter_matrix)
+                if (spec._html) {
+                    this.destroy();
+                    el.innerHTML = spec._html;
+                    // Execute any script tags
+                    var scripts = el.querySelectorAll('script');
+                    for (var i = 0; i < scripts.length; i++) {
+                        var s = scripts[i];
+                        var newScript = document.createElement('script');
+                        newScript.textContent = s.textContent;
+                        s.parentNode.replaceChild(newScript, s);
+                    }
+                    return;
+                }
+
+                el.innerHTML = '';
+
+                // Ensure non-zero dimensions before ECharts init
+                if (el.offsetWidth === 0 || el.offsetHeight === 0) {
+                    el.style.width = el.style.width || '800px';
+                    el.style.height = el.style.height || '520px';
+                }
+
+                var themeName = (theme === 'dark') ? 'dark' : undefined;
+                if (this._instance) {
+                    this._instance.dispose();
+                    this._instance = null;
+                }
+                this._instance = echarts.init(el, themeName);
+                this._instance.setOption(spec);
+                this._currentSpec = spec;
+
+                var self = this;
+                window.addEventListener('resize', function() {
+                    if (self._instance) self._instance.resize();
+                });
+            },
+
+            switchTheme: function(theme) {
+                if (!this._currentSpec) return;
+                this.destroy();
+                var el = document.getElementById(this._containerId);
+                if (!el) return;
+                var themeName = (theme === 'dark') ? 'dark' : undefined;
+                this._instance = echarts.init(el, themeName);
+                this._instance.setOption(this._currentSpec);
+            },
+
+            destroy: function() {
+                if (this._instance) {
+                    this._instance.dispose();
+                    this._instance = null;
+                }
+            }
+        };
+
+        // ═══════════════════════════════════════════════════════
+        // UIEventBus — 解耦 Chat/Chart/Story
+        // ═══════════════════════════════════════════════════════
+        var UIEventBus = {
+            _handlers: {},
+            on: function(event, fn) {
+                (this._handlers[event] = this._handlers[event] || []).push(fn);
+            },
+            off: function(event, fn) {
+                var list = this._handlers[event];
+                if (!list) return;
+                this._handlers[event] = list.filter(function(f) { return f !== fn; });
+            },
+            dispatch: function(event, data) {
+                (this._handlers[event] || []).forEach(function(fn) { fn(data); });
+            }
+        };
+
+        function app() {
+            return {
+                step: 1,
+                uploading: false,
+                loadingRec: false,
+                generating: false,
+                error: "",
+                // Batch 3
+                insights: [],
+                insightLoading: false,
+                filePath: "",
+                sheets: [],
+                selectedSheet: "",
+                rowCount: 0,
+                colCount: 0,
+                columns: [],
+                recommendations: [],
+                chartType: "bar",
+                xColumn: "",
+                yColumns: [],
+                chartTitle: "",
+                theme: "business",
+                styleTemplate: "clean",
+                chartHTML: "",              // legacy — kept for existing chart generation
+                chartSpec: null,            // v3 spec rendering
+                templates: [],
+                showTemplateGallery: false,
+                exportPreview: null,
+
+                // ── Chat v3 ──
+                chatCollapsed: true,
+                messages: [],               // [{id, role, content, ts}]
+                chartCards: {},             // {msgId: {spec, title}} — separate for Alpine reactivity
+                thinkingStore: {},          // {msgId: {level1, level2, level3, confidence, expanded}}
+                chatInput: '',
+                chatting: false,
+                sessionId: '',
+
+                async uploadFile(event) {
+                    var file = event.target.files[0];
+                    if (!file) return;
+                    
+                    // Validate file type
+                    var ext = file.name.split('.').pop().toLowerCase();
+                    if (['xlsx', 'xls', 'csv'].indexOf(ext) === -1) {
+                        this.error = '不支持的文件格式，请上传 .xlsx / .xls / .csv 文件';
+                        return;
+                    }
+                    
+                    this.uploading = true;
+                    this.error = "";
+                    
+                    var form = new FormData();
+                    form.append("file", file);
+                    
+                    try {
+                        var resp = await fetch("/api/upload", { method: "POST", body: form });
+                        if (!resp.ok) {
+                            var errData = await resp.json().catch(function() { return {}; });
+                            throw new Error(errData.error || errData.detail || "服务器错误 (HTTP " + resp.status + ")");
+                        }
+                        var data = await resp.json();
+                        this.filePath = data.file_path;
+                        this.sheets = data.sheets;
+                        this.selectedSheet = data.sheets[0] || "";
+                        this.chatCollapsed = false; // auto-expand agent panel
+                    } catch (e) {
+                        this.error = "上传失败：" + (e.message || "请检查文件是否有效，或稍后重试");
+                    }
+                    this.uploading = false;
+                    // Auto-analysis prompt
+                    var self = this;
+                    this.$nextTick(function() {
+                        var promptId = 'auto_prompt_' + Date.now();
+                        self.messages.push({
+                            id: promptId,
+                            role: 'agent',
+                            content: '我看到你上传了「' + file.name + '」，是否需要我帮你自动分析数据并推荐合适的图表？',
+                            actions: [
+                                { icon: '🔍', label: '需要分析', desc: '让 AI 推荐最佳图表', prompt: '帮我分析这份数据，推荐最合适的图表类型' },
+                                { icon: '✋', label: '我自己来', desc: '手动选择图表类型', dismiss: true }
+                            ],
+                            ts: Date.now()
+                        });
+                        self._scrollChat();
+                    });
+                },
+
+                handleDrop(event) {
+                    var file = event.dataTransfer.files[0];
+                    if (file) {
+                        var dt = new DataTransfer();
+                        dt.items.add(file);
+                        this.$refs.fileInput.files = dt.files;
+                        this.uploadFile({ target: { files: dt.files } });
+                    }
+                },
+
+                async analyzeSheet() {
+                    if (!this.selectedSheet) return;
+                    this.uploading = true;
+                    this.error = "";
+                    
+                    var form = new FormData();
+                    form.append("file_path", this.filePath);
+                    form.append("sheet_name", this.selectedSheet);
+                    
+                    try {
+                        var resp = await fetch("/api/analyze", { method: "POST", body: form });
+                        if (!resp.ok) {
+                            var errData = await resp.json().catch(function() { return {}; });
+                            throw new Error(errData.error || errData.detail || "服务器错误 (HTTP " + resp.status + ")");
+                        }
+                        var data = await resp.json();
+                        this.columns = data.columns;
+                        this.rowCount = data.row_count;
+                        this.colCount = data.col_count;
+                        this.step = 2;
+                        // Auto-fetch insights after analysis
+                        this.runInsights();
+                    } catch (e) {
+                        this.error = "分析失败：" + (e.message || "请确认选择了正确的数据表，或稍后重试");
+                    }
+                    this.uploading = false;
+                },
+
+                clearFile: function() {
+                    this.filePath = '';
+                    this.sheets = [];
+                    this.selectedSheet = '';
+                    this.columns = [];
+                    this.rowCount = 0;
+                    this.colCount = 0;
+                    this.recommendations = [];
+                    this.step = 1;
+                    this.error = '';
+                },
+
+                async getRecommendations() {
+                    this.loadingRec = true;
+                    this.error = "";
+                    var form = new FormData();
+                    form.append("file_path", this.filePath);
+                    form.append("sheet_name", this.selectedSheet);
+                    
+                    try {
+                        var resp = await fetch("/api/recommend", { method: "POST", body: form });
+                        if (!resp.ok) {
+                            var errData = await resp.json().catch(function() { return {}; });
+                            throw new Error(errData.error || errData.detail || "服务器错误 (HTTP " + resp.status + ")");
+                        }
+                        var data = await resp.json();
+                        this.recommendations = data.recommendations;
+                    } catch (e) {
+                        this.error = "AI 推荐失败：" + (e.message || "AI 服务暂时不可用，请稍后重试或手动选择图表类型");
+                    }
+                    this.loadingRec = false;
+                },
+
+                applyRecommendation(rec) {
+                    this.chartType = rec.type;
+                    this.xColumn = rec.x;
+                    this.yColumns = rec.y || [];
+                    this.chartTitle = rec.type_cn + " - " + this.selectedSheet;
+                    this.step = 3;
+                    this.generateChart();
+                },
+
+                goToStep3() {
+                    this.step = 3;
+                    // Auto-select first numeric column as Y-axis
+                    if (this.yColumns.length === 0 && this.columns.length > 0) {
+                        var firstNumeric = null;
+                        for (var i = 0; i < this.columns.length; i++) {
+                            var c = this.columns[i];
+                            if (c.dtype.indexOf("int") > -1 || c.dtype.indexOf("float") > -1) {
+                                firstNumeric = c;
+                                break;
+                            }
+                        }
+                        if (firstNumeric) {
+                            this.yColumns = [firstNumeric.name];
+                        }
+                    }
+                },
+
+                // ── Smart axis helpers ──
+
+                needsXAxis: function() {
+                    var noX = ["histogram", "heatmap", "scatter_matrix", "gauge"];
+                    return noX.indexOf(this.chartType) === -1;
+                },
+
+                xAxisHint: function() {
+                    var hints = {
+                        scatter: "（选数值列）", bubble: "（选数值列）",
+                        pie: "（选分类列）", funnel: "（选分类列）"
+                    };
+                    return hints[this.chartType] || "（选分类列）";
+                },
+
+                xAxisColumns: function() {
+                    var self = this;
+                    var needNumeric = ["scatter", "bubble"];
+                    if (needNumeric.indexOf(self.chartType) > -1) {
+                        return self.columns.filter(function(c) {
+                            return c.dtype.indexOf("int") > -1 || c.dtype.indexOf("float") > -1;
+                        });
+                    }
+                    return self.columns;
+                },
+
+                yAxisLabel: function() {
+                    var single = ["pie", "funnel", "histogram", "gauge"];
+                    if (single.indexOf(this.chartType) > -1) return "数值列";
+                    return "Y 轴（可多选）";
+                },
+
+                yAxisHint: function() {
+                    var single = ["pie", "funnel", "histogram", "gauge"];
+                    if (single.indexOf(this.chartType) > -1) return "（单选）";
+                    return "";
+                },
+
+                yAxisColumns: function() {
+                    var self = this;
+                    return self.columns.filter(function(c) {
+                        return c.dtype.indexOf("int") > -1 || c.dtype.indexOf("float") > -1;
+                    });
+                },
+
+                onChartTypeChange: function() {
+                    // Skip reset when syncing from agent (values set right after)
+                    if (this._agentSyncing) return;
+                    // Reset Y-axis to prevent multi-select on single-value charts
+                    var single = ["pie", "funnel", "histogram", "gauge"];
+                    if (single.indexOf(this.chartType) > -1 && this.yColumns.length > 1) {
+                        this.yColumns = [this.yColumns[0]];
+                    }
+                    // Auto-pick smart defaults
+                    this.xColumn = "";
+                    this.yColumns = [];
+                    this.chartHTML = "";
+                },
+
+                onYAxisChange: function(col) {
+                    // For single-value charts, only allow one selection
+                    var single = ["pie", "funnel", "histogram", "gauge"];
+                    if (single.indexOf(this.chartType) > -1) {
+                        // Keep only the last clicked
+                        var idx = this.yColumns.indexOf(col.name);
+                        if (idx > -1) {
+                            this.yColumns = [col.name];
+                        }
+                    }
+                },
+
+                async generateChart() {
+                    var self = this;
+                    var noXTypes = ["heatmap", "scatter_matrix", "histogram", "boxplot", "gauge"];
+                    if (!this.xColumn && noXTypes.indexOf(this.chartType) === -1) {
+                        this.error = "请先选择 X 轴列，然后重试";
+                        return;
+                    }
+                    this.generating = true;
+                    this.error = "";
+                    this.chartHTML = "";
+                    this.exportPreview = null;  // clear old export preview
+                    
+                    var form = new FormData();
+                    form.append("file_path", this.filePath);
+                    form.append("sheet_name", this.selectedSheet);
+                    form.append("chart_type", this.chartType);
+                    form.append("x_column", this.xColumn);
+                    form.append("y_columns", JSON.stringify(this.yColumns));
+                    form.append("title", this.chartTitle);
+                    form.append("theme", this.theme);
+                    form.append("style_template", this.styleTemplate);
+                    
+                    try {
+                        var resp = await fetch("/api/chart", { method: "POST", body: form });
+                        if (!resp.ok) {
+                            var errData = await resp.json().catch(function() { return {}; });
+                            throw new Error(errData.error || errData.detail || "服务器错误 (HTTP " + resp.status + ")");
+                        }
+                        var data = await resp.json();
+                        this.chartHTML = data.chart_html;  // keep for backward compat
+                        this.step = 3;
+                        // v3: render via ChartRenderer (spec-based, no script re-exec needed)
+                        if (data.chart_spec && !data.chart_spec._error) {
+                            this.chartSpec = data.chart_spec;
+                            var self = this;
+                            this.$nextTick(function() {
+                                var theme = self.theme === 'tech_dark' ? 'dark' : 'light';
+                                window.ChartRenderer.render(data.chart_spec, theme);
+                            });
+                        }
+                    } catch (e) {
+                        this.error = "生成图表失败：" + (e.message || "请检查所选列是否包含有效数据，或尝试其他图表类型");
+                    }
+                    this.generating = false;
+                },
+
+                goBack() {
+                    if (this.step > 1) {
+                        this.step = this.step - 1;
+                        this.error = "";
+                    }
+                },
+
+                async saveTemplate() {
+                    var name = '模板 ' + new Date().toLocaleDateString();
+                    if (!name) return;
+                    
+                    var form = new FormData();
+                    form.append("name", name);
+                    form.append("chart_type", this.chartType);
+                    form.append("x_column", this.xColumn);
+                    form.append("y_columns", JSON.stringify(this.yColumns));
+                    form.append("config", JSON.stringify({ theme: this.theme, title: this.chartTitle }));
+                    
+                    await fetch("/api/templates", { method: "POST", body: form });
+                    this.toast('模板已保存 ✅', 'success');
+                    await this.loadTemplates();
+                },
+
+                async loadTemplates() {
+                    try {
+                        var resp = await fetch("/api/templates");
+                        var data = await resp.json();
+                        this.templates = data.templates || [];
+                    } catch (e) {
+                        // Silently fail, templates are optional
+                    }
+                },
+
+                loadTemplate(tpl) {
+                    this.chartType = tpl.chart_type;
+                    this.xColumn = tpl.x_column;
+                    try {
+                        this.yColumns = JSON.parse(tpl.y_columns);
+                    } catch (e) {
+                        this.yColumns = tpl.y_columns || [];
+                    }
+                    try {
+                        var config = JSON.parse(tpl.config);
+                        this.theme = config.theme || "business";
+                        this.chartTitle = config.title || "";
+                    } catch (e) {
+                        this.theme = "business";
+                        this.chartTitle = "";
+                    }
+                    this.showTemplateGallery = false;
+                    this.generateChart();
+                },
+
+                async deleteTemplate(id) {
+                    try {
+                        await fetch("/api/templates/" + id, { method: "DELETE" });
+                        this.toast('模板已删除', 'success');
+                        await this.loadTemplates();
+                    } catch (e) {
+                        this.error = "删除模板失败: " + e.message;
+                    }
+                },
+
+                async exportPNG() {
+                    await this._doExport("png");
+                },
+
+                async exportPNGHD() {
+                    await this._doExport("png_hd");
+                },
+
+                async exportPDF() {
+                    await this._doExport("pdf");
+                },
+
+                async _doExport(format) {
+                    var self = this;
+                    var form = new FormData();
+                    form.append("chart_html", this.chartHTML);
+                    form.append("format", format);
+
+                    var resp = await fetch("/api/export", { method: "POST", body: form });
+                    var data = await resp.json();
+                    // Show inline preview instead of new tab
+                    this.exportPreview = { url: data.url, format: data.format || format };
+                    // Scroll to preview
+                    this.$nextTick(function() {
+                        var panel = document.querySelector('[x-show="exportPreview"]');
+                        if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    });
+                },
+
+                // ══════════════════ Chat v3 Methods ══════════════════
+
+                getThinking: function(msgId) {
+                    return this.thinkingStore[msgId] || null;
+                },
+
+                toggleThinking: function(msgId) {
+                    if (this.thinkingStore[msgId]) {
+                        this.thinkingStore[msgId].expanded = !this.thinkingStore[msgId].expanded;
+                    }
+                },
+
+                quickChat: function(msg) {
+                    this.chatInput = msg;
+                    this.sendMessage();
+                },
+
+                generateFromInsight: function(insight) {
+                    var self = this;
+                    if (insight.x_column) self.xColumn = insight.x_column;
+                    if (insight.y_columns) self.yColumns = insight.y_columns;
+                    if (insight.chart_type) self.chartType = insight.chart_type;
+                    if (insight.title) self.chartTitle = insight.title;
+                    self.step = 3;
+                    self.$nextTick(function() {
+                        self.generateChart();
+                    });
+                },
+
+                fetchInsights: function() {
+                    var self = this;
+                    if (!self.filePath) return;
+                    fetch('/api/insights', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            file_path: self.filePath,
+                            sheet_name: self.selectedSheet
+                        })
+                    })
+                    .then(function(resp) { return resp.json(); })
+                    .then(function(data) {
+                        if (data.insights) {
+                            var msgId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+                            self.messages.push({
+                                id: msgId,
+                                role: 'agent',
+                                content: '🔍 探索发现：' + (data.insights.title || '数据洞察'),
+                                insights: data.insights,
+                                ts: Date.now()
+                            });
+                            self._scrollChat();
+                        }
+                    })
+                    .catch(function() {});
+                },
+
+                viewChartFromChat: function(msgId) {
+                    if (!msgId) return;
+                    var cc = this.chartCards[msgId];
+                    if (!cc || !cc.spec) return;
+                    var spec = cc.spec;
+                    this.chartHTML = 'agent';
+                    this.chartSpec = spec;
+                    this.step = 3;
+                    var self = this;
+                    this.$nextTick(function() {
+                        var theme = self.theme === 'tech_dark' ? 'dark' : 'light';
+                        window.ChartRenderer.render(spec, theme);
+                    });
+                },
+
+                async sendMessage(ctx) {
+                    var msg = this.chatInput.trim();
+                    if (!msg || this.chatting) return;
+
+                    this.chatCollapsed = false;  // auto-expand when sending
+
+                    var msgId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+                    this.messages.push({ id: msgId, role: 'user', content: msg, ts: Date.now() });
+                    this.chatInput = '';
+                    this.chatting = true;
+
+                    var self = this;
+                    var agentMsgId = null;
+                    var agentContent = '';
+                    // Build context for follow-up
+                    var sendCtx = ctx || {};
+                    var bodyObj = {
+                        message: msg,
+                        file_path: self.filePath,
+                        sheet_name: self.selectedSheet,
+                        session_id: self.sessionId
+                    };
+                    if (sendCtx) {
+                        bodyObj.context = sendCtx;
+                    }
+
+                    try {
+                        var apiUrl = '/api/chat';
+                        var resp = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(bodyObj)
+                        });
+
+                        if (!resp.ok) {
+                            var errText = await resp.text();
+                            throw new Error(errText || '服务器错误');
+                        }
+
+                        var reader = resp.body.getReader();
+                        var decoder = new TextDecoder();
+                        var parser = new SSEParser(function(event, data) {
+                            console.log('[DEBUG SSE]', event, JSON.stringify(data).substring(0,100));
+                            UIEventBus.dispatch(event, data);
+                        });
+
+                        // Register event handlers (named for cleanup)
+                        var onNarrative = function(data) {
+                            console.log('[DEBUG onNarrative]', data);
+                            self.error = '';  // clear any old error
+                            if (!agentMsgId) {
+                                agentMsgId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+                                self.messages.push({ id: agentMsgId, role: 'agent', content: '', ts: Date.now() });
+                            }
+                            var am = self.messages.find(function(m) { return m.id === agentMsgId; });
+                            if (am) { am.content += data.content; }
+                            // Trigger Alpine reactivity: create new array reference
+                            self.messages = self.messages.slice();
+                            self._scrollChat();
+                        };
+                        var onReasoning = function(data) {
+                            if (agentMsgId) {
+                                self.thinkingStore[agentMsgId] = {
+                                    level1: data.level1 || '',
+                                    level2: data.level2 || [],
+                                    level3: data.level3 || {},
+                                    confidence: data.confidence || 'medium',
+                                    expanded: false
+                                };
+                                // Trigger reactivity
+                                self.thinkingStore = Object.assign({}, self.thinkingStore);
+                            }
+                        };
+                        var onAction = function(data) {
+                            if (data.chart_spec) {
+                                if (agentMsgId) {
+                                    self.chartCards[agentMsgId] = {
+                                        spec: data.chart_spec,
+                                        title: data.title || '图表'
+                                    };
+                                    self.chartCards = Object.assign({}, self.chartCards);
+                                }
+                                // Sync all config data
+                                self.error = '';
+                                self.chartHTML = 'agent';
+                                if (data.columns && data.columns.length > 0) {
+                                    self.columns = data.columns;
+                                    self.colCount = data.columns.length;
+                                }
+                                if (data.row_count) self.rowCount = data.row_count;
+                                self.chartSpec = data.chart_spec;
+                                // Set chart config AFTER columns are in place
+                                self.chartType = data.chart_type || 'bar';
+                                if (data.x_column) self.xColumn = data.x_column;
+                                if (data.y_columns && data.y_columns.length > 0) self.yColumns = data.y_columns;
+                                self.step = 3;
+                                self.$nextTick(function() {
+                                    var theme = self.theme === 'tech_dark' ? 'dark' : 'light';
+                                    window.ChartRenderer.render(data.chart_spec, theme);
+                                });
+                            }
+                        };
+                        var onSynthesis = function(data) {
+                            // ReAct insight cards: {insights: [...], count: N}
+                            if (data.insights && data.insights.length > 0) {
+                                var insId = 'insight_' + Date.now();
+                                self.messages.push({
+                                    id: insId, role: 'insight',
+                                    insights: data.insights,
+                                    count: data.count || data.insights.length,
+                                    ts: Date.now()
+                                });
+                                self._scrollChat();
+                            }
+                        };
+                        var onError = function(data) {
+                            self.messages.push({
+                                id: 'err_' + Date.now(),
+                                role: 'agent',
+                                content: '❌ ' + (data.message || '未知错误'),
+                                ts: Date.now()
+                            });
+                            self._scrollChat();
+                        };
+
+                        UIEventBus.on('narrative', onNarrative);
+                        UIEventBus.on('reasoning', onReasoning);
+                        UIEventBus.on('action', onAction);
+                        UIEventBus.on('synthesis', onSynthesis);
+                        UIEventBus.on('error', onError);
+
+                        // Read stream
+                        while (true) {
+                            var chunk = await reader.read();
+                            if (chunk.done) break;
+                            parser.feed(decoder.decode(chunk.value, { stream: true }));
+                        }
+
+                        // Flush remaining
+                        parser.feed('\n\n');
+
+                        // Cleanup handlers (prevent memory leak)
+                        UIEventBus.off('narrative', onNarrative);
+                        UIEventBus.off('reasoning', onReasoning);
+                        UIEventBus.off('action', onAction);
+                        UIEventBus.off('synthesis', onSynthesis);
+                        UIEventBus.off('error', onError);
+
+                    } catch (e) {
+                        self.messages.push({
+                            id: 'err_' + Date.now(),
+                            role: 'agent',
+                            content: '❌ 连接失败：' + (e.message || '请检查网络'),
+                            ts: Date.now()
+                        });
+                    }
+
+                    self.chatting = false;
+                    self._scrollChat();
+                },
+
+                // ── Batch 3: Insights + Follow-up ──
+                runInsights: async function() {
+                    if (!this.filePath || !this.selectedSheet) return;
+                    this.insightLoading = true;
+                    var form = new FormData();
+                    form.append("file_path", this.filePath);
+                    form.append("sheet_name", this.selectedSheet);
+                    try {
+                        var resp = await fetch("/api/insights", { method: "POST", body: form });
+                        var data = await resp.json();
+                        if (data.error) { this.error = data.error; }
+                        else { this.insights = data.insights || []; }
+                    } catch(e) {
+                        this.error = "洞察分析失败: " + e.message;
+                    }
+                    this.insightLoading = false;
+                },
+
+                insightToChart: function(ins) {
+                    if (ins.type === 'trend') this.chartType = 'line';
+                    else if (ins.type === 'correlation') this.chartType = 'scatter';
+                    else if (ins.type === 'outlier') this.chartType = 'boxplot';
+                    else if (ins.type === 'distribution') this.chartType = 'histogram';
+                    else this.chartType = 'line';
+                    if (ins.columns && ins.columns.length > 0) {
+                        this.xColumn = ins.columns[0];
+                        this.yColumns = ins.columns.length > 1 ? ins.columns.slice(1) : ins.columns;
+                    }
+                    this.generateChart();
+                },
+
+                followUpInsight: function(ins) {
+                    this.chatInput = '为什么「' + (ins.title || '') + '」？帮我分析原因';
+                    var self = this;
+                    self.$nextTick(function() {
+                        self.sendMessage({ insight: { title: ins.title || '', type: ins.type || '', columns: ins.columns || [] } });
+                    });
+                },
+
+                reframeInsight: function(ins) {
+                    this.chatInput = '从不同角度分析「' + (ins.title || '') + '」的数据关系';
+                    var self = this;
+                    self.$nextTick(function() {
+                        self.sendMessage({ insight: { title: ins.title || '', type: ins.type || '', columns: ins.columns || [] } });
+                    });
+                },
+
+                _scrollChat: function() {
+                    var self = this;
+                    this.$nextTick(function() {
+                        var el = document.getElementById('chatMsgList');
+                        if (el) el.scrollTop = el.scrollHeight;
+                    });
+                },
+
+                handleMessageAction: function(msg, act) {
+                    if (act.dismiss) {
+                        // Remove the prompt message
+                        this.messages = this.messages.filter(function(m) { return m.id !== msg.id; });
+                        return;
+                    }
+                    if (act.prompt) {
+                        // Remove the prompt message
+                        this.messages = this.messages.filter(function(m) { return m.id !== msg.id; });
+                        // Set chat input and send
+                        this.chatInput = act.prompt;
+                        var self = this;
+                        this.$nextTick(function() {
+                            self.sendMessage();
+                        });
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>

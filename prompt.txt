@@ -1,0 +1,86 @@
+你是一个全栈工程师，请修改 Excel Chart Tool 项目的以下文件。项目在 C:/Users/admin/Desktop/excel-chart-tool/
+
+## 任务 1: 修复 excel_reader.py — 智能表头检测
+
+当前 `load_sheet()` 直接 `pd.read_excel()`，遇到首行不是列名的文件（如字段说明文档）会产生 "Unnamed: 0" 列名。
+
+请增强 `services/excel_reader.py`：
+
+```python
+def load_sheet(filepath: str, sheet_name: str | int = 0, header_row: int | None = None) -> pd.DataFrame:
+    """加载指定 sheet。header_row=None 时自动检测真正的表头行。"""
+    if header_row is not None:
+        return pd.read_excel(filepath, sheet_name=sheet_name, header=header_row)
+    # 自动检测：找第一个所有列都有非空字符串的行
+    import pandas as pd
+    raw = pd.read_excel(filepath, sheet_name=sheet_name, header=None, nrows=10)
+    for row_idx in range(len(raw)):
+        row_vals = raw.iloc[row_idx].dropna().values
+        if len(row_vals) >= max(2, len(raw.columns) * 0.5):
+            # 检查是否像列名（字符串类型、非纯数字）
+            str_count = sum(1 for v in row_vals if isinstance(v, str) and not str(v).replace('.','').isdigit())
+            if str_count >= len(row_vals) * 0.5:
+                return pd.read_excel(filepath, sheet_name=sheet_name, header=row_idx)
+    # 兜底
+    return pd.read_excel(filepath, sheet_name=sheet_name)
+
+def detect_header_issues(df: pd.DataFrame) -> dict:
+    """检测列名问题。返回 {has_issues: bool, unnamed_cols: [...], suggestions: [...]}"""
+    unnamed = [c for c in df.columns if 'Unnamed' in str(c) or str(c).strip() == '' or pd.isna(c)]
+    return {
+        "has_issues": len(unnamed) > 0,
+        "unnamed_cols": unnamed,
+        "header_row_used": 0
+    }
+```
+
+## 任务 2: 更新 app.py — 加 header 检测端点
+
+在 `/api/analyze` 返回中添加 `header_issues` 字段。同时加一个新端点让用户可以指定 header_row 重新读取：
+
+```python
+@app.post("/api/reanalyze")
+async def reanalyze(file_path: str = Form(...), sheet_name: str = Form(...), header_row: int = Form(0)):
+    """用户指定 header_row 后重新分析"""
+    from services.excel_reader import load_sheet
+    df = load_sheet(file_path, sheet_name, header_row=header_row)
+    analysis = build_analysis(df)
+    preview = build_preview(df)
+    issues = detect_header_issues(df)
+    return JSONResponse({
+        "columns": analysis["columns"],
+        "row_count": analysis["row_count"],
+        "col_count": analysis["col_count"],
+        "preview": preview,
+        "top_correlations": analysis["top_correlations"],
+        "header_issues": issues,
+    })
+```
+
+## 任务 3: 重构 index.html Step 2 布局
+
+当前 Step 2 布局混乱。请改成清晰的左右分栏：
+
+```
+┌────────────── 70% ──────────────┬── 30% ──────────┐
+│ 📊 数据预览 (可滚动大表)         │ 🤖 AI推荐        │
+│ 列名行带类型badge + null%        │ (clickable卡片)   │
+│ 数据行 × N                      │                  │
+│                                 │ 🔗 相关性分析    │
+│ ⚠️ Unnamed警告 (条件显示)       │ (进度条列表)      │
+│ [尝试修复] 按钮 → 切换header行   │                  │
+│                                 │ [跳过→选图]      │
+└─────────────────────────────────┴──────────────────┘
+```
+
+具体改动：
+1. 删除旧的独立 "列分析表" 和 "数据预览" 两个分开的卡片
+2. 合并为一个大卡片（左侧 70%）：列名作为表头行（每列标注 type badge + null%），数据行在下面
+3. 右侧 30%：AI推荐 + 相关性分析
+4. 如果 `header_issues.has_issues` 为 true，在数据预览上方显示黄色警告横幅 "⚠️ 检测到异常列名：Unnamed:0, Unnamed:1... 这通常表示 Excel 表头行位置不对。"
+5. 警告横幅上放一个 [尝试自动修复] 按钮，点击后调用 /api/reanalyze 用不同 header_row 重试
+6. JS 数据模型中加 headerIssues: {}
+
+注意：所有 Alpine.js 模板语法使用 `x-show`, `x-text`, `x-for`, `x-model`, `x-bind:class` 等。不要使用可选链操作符 `?.` 或空值合并操作符 `??`（QQ浏览器兼容）。
+
+请直接输出完整修改后的三个文件，不要解释。

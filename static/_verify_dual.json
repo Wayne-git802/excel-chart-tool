@@ -1,0 +1,423 @@
+{
+  "backgroundColor": "#0f172a",
+  "animation": true,
+  "animationThreshold": 2000,
+  "animationDuration": 1000,
+  "animationEasing": "cubicOut",
+  "animationDelay": 0,
+  "animationDurationUpdate": 300,
+  "animationEasingUpdate": "cubicOut",
+  "animationDelayUpdate": 0,
+  "aria": {
+    "enabled": false
+  },
+  "series": [
+    {
+      "type": "line",
+      "name": "销售额",
+      "connectNulls": false,
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+      "symbol": "circle",
+      "symbolSize": 6,
+      "showSymbol": true,
+      "smooth": true,
+      "clip": true,
+      "step": false,
+      "stackStrategy": "samesign",
+      "data": [
+        [
+          "1月",
+          100
+        ],
+        [
+          "2月",
+          150
+        ],
+        [
+          "3月",
+          200
+        ],
+        [
+          "4月",
+          180
+        ],
+        [
+          "5月",
+          250
+        ],
+        [
+          "6月",
+          300
+        ]
+      ],
+      "hoverAnimation": true,
+      "label": {
+        "show": true,
+        "margin": 8,
+        "valueAnimation": false
+      },
+      "logBase": 10,
+      "seriesLayoutBy": "column",
+      "lineStyle": {
+        "show": true,
+        "width": 3,
+        "opacity": 1,
+        "curveness": 0,
+        "type": "solid"
+      },
+      "areaStyle": {
+        "opacity": 0.08
+      },
+      "zlevel": 0,
+      "z": 0
+    },
+    {
+      "type": "line",
+      "name": "增长率",
+      "connectNulls": false,
+      "xAxisIndex": 0,
+      "yAxisIndex": 1,
+      "symbol": "diamond",
+      "symbolSize": 6,
+      "showSymbol": true,
+      "smooth": true,
+      "clip": true,
+      "step": false,
+      "stackStrategy": "samesign",
+      "data": [
+        [
+          "1月",
+          0.05
+        ],
+        [
+          "2月",
+          0.12
+        ],
+        [
+          "3月",
+          0.08
+        ],
+        [
+          "4月",
+          -0.02
+        ],
+        [
+          "5月",
+          0.15
+        ],
+        [
+          "6月",
+          0.2
+        ]
+      ],
+      "hoverAnimation": true,
+      "label": {
+        "show": true,
+        "margin": 8,
+        "valueAnimation": false
+      },
+      "logBase": 10,
+      "seriesLayoutBy": "column",
+      "lineStyle": {
+        "show": true,
+        "width": 3,
+        "opacity": 1,
+        "curveness": 0,
+        "type": "solid"
+      },
+      "areaStyle": {
+        "opacity": 0.08
+      },
+      "zlevel": 0,
+      "z": 0
+    },
+    {
+      "type": "line",
+      "name": "客户数",
+      "connectNulls": false,
+      "xAxisIndex": 0,
+      "yAxisIndex": 1,
+      "symbol": "diamond",
+      "symbolSize": 6,
+      "showSymbol": true,
+      "smooth": true,
+      "clip": true,
+      "step": false,
+      "stackStrategy": "samesign",
+      "data": [
+        [
+          "1月",
+          50
+        ],
+        [
+          "2月",
+          55
+        ],
+        [
+          "3月",
+          62
+        ],
+        [
+          "4月",
+          58
+        ],
+        [
+          "5月",
+          70
+        ],
+        [
+          "6月",
+          80
+        ]
+      ],
+      "hoverAnimation": true,
+      "label": {
+        "show": true,
+        "margin": 8,
+        "valueAnimation": false
+      },
+      "logBase": 10,
+      "seriesLayoutBy": "column",
+      "lineStyle": {
+        "show": true,
+        "width": 3,
+        "opacity": 1,
+        "curveness": 0,
+        "type": "solid"
+      },
+      "areaStyle": {
+        "opacity": 0.08
+      },
+      "zlevel": 0,
+      "z": 0
+    }
+  ],
+  "legend": [
+    {
+      "data": [
+        "销售额",
+        "增长率",
+        "客户数"
+      ],
+      "selected": {},
+      "show": true,
+      "top": "42px",
+      "padding": 5,
+      "itemGap": 10,
+      "itemWidth": 25,
+      "itemHeight": 14,
+      "textStyle": {
+        "color": "#94a3b8",
+        "fontSize": 12
+      },
+      "backgroundColor": "transparent",
+      "borderColor": "#ccc",
+      "borderRadius": 0,
+      "pageButtonItemGap": 5,
+      "pageButtonPosition": "end",
+      "pageFormatter": "{current}/{total}",
+      "pageIconColor": "#2f4554",
+      "pageIconInactiveColor": "#aaa",
+      "pageIconSize": 15,
+      "animationDurationUpdate": 800,
+      "selector": false,
+      "selectorPosition": "auto",
+      "selectorItemGap": 7,
+      "selectorButtonGap": 10
+    }
+  ],
+  "tooltip": {
+    "show": true,
+    "trigger": "axis",
+    "triggerOn": "mousemove|click",
+    "axisPointer": {
+      "type": "line"
+    },
+    "showContent": true,
+    "alwaysShowContent": false,
+    "showDelay": 0,
+    "hideDelay": 100,
+    "enterable": false,
+    "confine": false,
+    "appendToBody": false,
+    "transitionDuration": 0.4,
+    "textStyle": {
+      "color": "#e2e8f0",
+      "fontSize": 13
+    },
+    "backgroundColor": "rgba(15,23,42,0.95)",
+    "borderColor": "rgba(148,163,184,0.2)",
+    "borderWidth": 0,
+    "padding": 5,
+    "order": "seriesAsc"
+  },
+  "xAxis": [
+    {
+      "show": true,
+      "scale": false,
+      "nameLocation": "end",
+      "nameGap": 15,
+      "nameTextStyle": {
+        "color": "#94a3b8",
+        "fontSize": 12
+      },
+      "gridIndex": 0,
+      "axisLine": {
+        "show": true,
+        "onZero": true,
+        "onZeroAxisIndex": 0,
+        "lineStyle": {
+          "show": true,
+          "width": 1,
+          "opacity": 1,
+          "curveness": 0,
+          "type": "solid",
+          "color": "rgba(148,163,184,0.15)"
+        }
+      },
+      "axisLabel": {
+        "show": true,
+        "color": "#64748b",
+        "rotate": 30,
+        "margin": 8,
+        "fontSize": 11,
+        "valueAnimation": false
+      },
+      "inverse": false,
+      "offset": 0,
+      "splitNumber": 5,
+      "minInterval": 0,
+      "splitLine": {
+        "show": true,
+        "lineStyle": {
+          "show": true,
+          "width": 1,
+          "opacity": 1,
+          "curveness": 0,
+          "type": "solid"
+        }
+      },
+      "animation": true,
+      "animationThreshold": 2000,
+      "animationDuration": 1000,
+      "animationEasing": "cubicOut",
+      "animationDelay": 0,
+      "animationDurationUpdate": 300,
+      "animationEasingUpdate": "cubicOut",
+      "animationDelayUpdate": 0,
+      "data": [
+        "1月",
+        "2月",
+        "3月",
+        "4月",
+        "5月",
+        "6月"
+      ]
+    }
+  ],
+  "yAxis": [
+    {
+      "name": "销售额",
+      "show": true,
+      "scale": false,
+      "nameLocation": "end",
+      "nameGap": 15,
+      "nameTextStyle": {
+        "color": "#94a3b8",
+        "fontSize": 12
+      },
+      "gridIndex": 0,
+      "axisLabel": {
+        "show": true,
+        "color": "#64748b",
+        "margin": 8,
+        "fontSize": 11,
+        "valueAnimation": false
+      },
+      "inverse": false,
+      "offset": 0,
+      "splitNumber": 5,
+      "minInterval": 0,
+      "splitLine": {
+        "show": true,
+        "lineStyle": {
+          "show": true,
+          "width": 1,
+          "opacity": 1,
+          "curveness": 0,
+          "type": "solid",
+          "color": "rgba(148,163,184,0.06)"
+        }
+      },
+      "animation": true,
+      "animationThreshold": 2000,
+      "animationDuration": 1000,
+      "animationEasing": "cubicOut",
+      "animationDelay": 0,
+      "animationDurationUpdate": 300,
+      "animationEasingUpdate": "cubicOut",
+      "animationDelayUpdate": 0
+    },
+    {
+      "name": "右轴",
+      "show": true,
+      "scale": false,
+      "nameLocation": "end",
+      "nameGap": 15,
+      "nameTextStyle": {
+        "color": "#e2e8f0"
+      },
+      "gridIndex": 0,
+      "axisLabel": {
+        "show": true,
+        "color": "#2B7FC9",
+        "margin": 8,
+        "valueAnimation": false
+      },
+      "inverse": false,
+      "position": "right",
+      "offset": 0,
+      "splitNumber": 5,
+      "minInterval": 0,
+      "splitLine": {
+        "show": true,
+        "lineStyle": {
+          "show": true,
+          "width": 1,
+          "opacity": 1,
+          "curveness": 0,
+          "type": "solid"
+        }
+      },
+      "animation": true,
+      "animationThreshold": 2000,
+      "animationDuration": 1000,
+      "animationEasing": "cubicOut",
+      "animationDelay": 0,
+      "animationDurationUpdate": 300,
+      "animationEasingUpdate": "cubicOut",
+      "animationDelayUpdate": 0
+    }
+  ],
+  "title": [
+    {
+      "show": true,
+      "target": "blank",
+      "subtarget": "blank",
+      "left": "center",
+      "top": "8px",
+      "padding": 5,
+      "itemGap": 10,
+      "textAlign": "auto",
+      "textVerticalAlign": "auto",
+      "triggerEvent": false,
+      "textStyle": {
+        "color": "#e2e8f0",
+        "fontWeight": "bold",
+        "fontFamily": "Segoe UI, Microsoft YaHei, sans-serif",
+        "fontSize": 18
+      }
+    }
+  ]
+}

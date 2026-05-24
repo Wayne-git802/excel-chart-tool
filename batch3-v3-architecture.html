@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Batch 3 (v3) — InsightEngine 终版架构</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 1.8rem;
+      color: white;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .header { margin-bottom: 1.2rem; }
+    .header-row { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.3rem; }
+    .pulse-dot { width: 10px; height: 10px; background: #22d3ee; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    h1 { font-size: 1.2rem; font-weight: 700; }
+    .subtitle { color: #94a3b8; font-size: 0.75rem; margin-left: 1.5rem; }
+    .diagram-container {
+      background: rgba(15,23,42,0.5); border-radius: 0.8rem;
+      border: 1px solid #1e293b; padding: 1rem; overflow-x: auto; margin-bottom: 1.2rem;
+    }
+    svg { width: 100%; min-width: 1100px; display: block; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 0.8rem; margin-top: 1.2rem; }
+    .card {
+      background: rgba(15,23,42,0.5); border-radius: 0.7rem;
+      border: 1px solid #1e293b; padding: 1rem;
+    }
+    .card-header { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
+    .card-dot { width: 7px; height: 7px; border-radius: 50%; }
+    .card-dot.cyan { background: #22d3ee; }
+    .card-dot.amber { background: #fbbf24; }
+    .card-dot.violet { background: #a78bfa; }
+    .card-dot.emerald { background: #34d399; }
+    .card-dot.rose { background: #fb7185; }
+    .card-dot.orange { background: #fb923c; }
+    .card h3 { font-size: 0.8rem; font-weight: 600; }
+    .card ul { list-style: none; color: #94a3b8; font-size: 0.7rem; }
+    .card li { margin-bottom: 0.25rem; }
+    .tag { font-size: 0.65rem; padding: 1px 5px; border-radius: 3px; margin-left: 4px; }
+    .tag-new { background: #064e3b; color: #34d399; border: 1px solid #34d399; }
+    .tag-chg { background: #4a1d96; color: #a78bfa; border: 1px solid #a78bfa; }
+    .footer { text-align: center; margin-top: 1.2rem; color: #475569; font-size: 0.7rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>🔍 Batch 3 v3 — InsightEngine 终版架构</h1>
+      </div>
+      <p class="subtitle">
+        Dedup→Cluster(共识放大) · HypothesisPruner · ExecutionSemantics · source_count 加权
+      </p>
+    </div>
+
+    <!-- ===== DIAGRAM ===== -->
+    <div class="diagram-container">
+      <svg viewBox="0 0 1150 870">
+        <defs>
+          <marker id="arr" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#64748b" /></marker>
+          <marker id="arr-amber" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#fbbf24" /></marker>
+          <marker id="arr-cyan" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#22d3ee" /></marker>
+          <marker id="arr-green" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#34d399" /></marker>
+          <marker id="arr-rose" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#fb7185" /></marker>
+          <marker id="arr-purple" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#a78bfa" /></marker>
+          <marker id="arr-orange" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#fb923c" /></marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/></pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- ============================================================
+             TRIGGER + UserModeGate
+             ============================================================ -->
+        <rect x="20" y="25" width="185" height="85" rx="8" fill="#0f172a" stroke="#22d3ee" stroke-width="2"/>
+        <rect x="20" y="25" width="185" height="85" rx="8" fill="rgba(8,51,68,0.3)"/>
+        <text x="112" y="48" fill="#22d3ee" font-size="10" font-weight="700" text-anchor="middle">🚦 UserModeGate</text>
+        <text x="112" y="65" fill="#94a3b8" font-size="7" text-anchor="middle">explore / analyze / visualize</text>
+        <text x="112" y="79" fill="#64748b" font-size="6.5" text-anchor="middle">默认: analyze (不打扰)</text>
+        <text x="112" y="93" fill="#64748b" font-size="6.5" text-anchor="middle">用户可随时切换</text>
+
+        <rect x="230" y="25" width="145" height="50" rx="6" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5"/>
+        <rect x="230" y="25" width="145" height="50" rx="6" fill="rgba(120,53,15,0.2)"/>
+        <text x="302" y="46" fill="white" font-size="9" font-weight="600" text-anchor="middle">🎯 Trigger</text>
+        <text x="302" y="62" fill="#94a3b8" font-size="6.5" text-anchor="middle">upload · "分析一下"</text>
+
+        <line x1="205" y1="50" x2="228" y2="50" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arr-cyan)"/>
+
+        <!-- Engine + Intake -->
+        <rect x="230" y="95" width="145" height="70" rx="8" fill="#0f172a" stroke="#fbbf24" stroke-width="2"/>
+        <rect x="230" y="95" width="145" height="70" rx="8" fill="rgba(251,191,36,0.1)"/>
+        <text x="302" y="118" fill="#fbbf24" font-size="11" font-weight="700" text-anchor="middle">🧠 InsightEngine</text>
+        <text x="302" y="136" fill="#94a3b8" font-size="7" text-anchor="middle">run(df, context, mode)</text>
+        <text x="302" y="152" fill="#64748b" font-size="6.5" text-anchor="middle">Intake → 5 Detectors</text>
+        <line x1="302" y1="75" x2="302" y2="93" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arr-amber)"/>
+
+        <!-- ============================================================
+             5 DETECTORS
+             ============================================================ -->
+        <rect x="15" y="200" width="155" height="70" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/><rect x="15" y="200" width="155" height="70" rx="6" fill="rgba(6,78,59,0.2)"/>
+        <text x="92" y="222" fill="#34d399" font-size="9" font-weight="700" text-anchor="middle">📈 Trend</text>
+        <text x="92" y="238" fill="#94a3b8" font-size="6.5" text-anchor="middle">斜率·拐点·MA交叉</text>
+        <text x="92" y="256" fill="#34d399" font-size="6" text-anchor="middle">→ TrendInsight[]</text>
+
+        <rect x="185" y="200" width="155" height="70" rx="6" fill="#0f172a" stroke="#fb7185" stroke-width="1.5"/><rect x="185" y="200" width="155" height="70" rx="6" fill="rgba(136,19,55,0.2)"/>
+        <text x="262" y="222" fill="#fb7185" font-size="9" font-weight="700" text-anchor="middle">🔴 Outlier</text>
+        <text x="262" y="238" fill="#94a3b8" font-size="6.5" text-anchor="middle">IQR·Z>3σ·IForest</text>
+        <text x="262" y="256" fill="#fb7185" font-size="6" text-anchor="middle">→ OutlierInsight[]</text>
+
+        <rect x="355" y="200" width="155" height="70" rx="6" fill="#0f172a" stroke="#a78bfa" stroke-width="1.5"/><rect x="355" y="200" width="155" height="70" rx="6" fill="rgba(76,29,149,0.2)"/>
+        <text x="432" y="222" fill="#a78bfa" font-size="9" font-weight="700" text-anchor="middle">🔗 Corr</text>
+        <text x="432" y="238" fill="#94a3b8" font-size="6.5" text-anchor="middle">Pearson·Spearman·偏</text>
+        <text x="432" y="256" fill="#a78bfa" font-size="6" text-anchor="middle">→ CorrInsight[]</text>
+
+        <rect x="525" y="200" width="155" height="70" rx="6" fill="#0f172a" stroke="#22d3ee" stroke-width="1.5"/><rect x="525" y="200" width="155" height="70" rx="6" fill="rgba(8,51,68,0.2)"/>
+        <text x="602" y="222" fill="#22d3ee" font-size="9" font-weight="700" text-anchor="middle">📊 Dist</text>
+        <text x="602" y="238" fill="#94a3b8" font-size="6.5" text-anchor="middle">偏度·峰度·多模态</text>
+        <text x="602" y="256" fill="#22d3ee" font-size="6" text-anchor="middle">→ DistInsight[]</text>
+
+        <rect x="695" y="200" width="155" height="70" rx="6" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5"/><rect x="695" y="200" width="155" height="70" rx="6" fill="rgba(251,191,36,0.15)"/>
+        <text x="772" y="222" fill="#fbbf24" font-size="9" font-weight="700" text-anchor="middle">🔄 Season</text>
+        <text x="772" y="238" fill="#94a3b8" font-size="6.5" text-anchor="middle">ACF·周期·STL</text>
+        <text x="772" y="256" fill="#fbbf24" font-size="6" text-anchor="middle">→ SeasonInsight[]</text>
+
+        <!-- Engine → Detectors -->
+        <line x1="302" y1="165" x2="92" y2="198" stroke="#64748b" stroke-width="1"/>
+        <line x1="302" y1="165" x2="262" y2="198" stroke="#64748b" stroke-width="1"/>
+        <line x1="302" y1="165" x2="432" y2="198" stroke="#64748b" stroke-width="1"/>
+        <line x1="302" y1="165" x2="602" y2="198" stroke="#64748b" stroke-width="1"/>
+        <line x1="302" y1="165" x2="772" y2="198" stroke="#64748b" stroke-width="1"/>
+        <text x="320" y="185" fill="#fbbf24" font-size="6">asyncio.gather</text>
+
+        <!-- ============================================================
+             DEDUP → CLUSTER (v3: consensus amplifier)
+             ============================================================ -->
+        <rect x="15" y="295" width="835" height="90" rx="8" fill="#0f172a" stroke="#22d3ee" stroke-width="2"/>
+        <rect x="15" y="295" width="835" height="90" rx="8" fill="rgba(8,51,68,0.1)"/>
+        <text x="432" y="320" fill="#22d3ee" font-size="11" font-weight="700" text-anchor="middle">🔵 InsightCluster (原 Dedup v3) <tspan fill="#22d3ee" font-size="7" class="tag tag-new">REDESIGNED</tspan></text>
+
+        <!-- Cluster internals — 3 steps -->
+        <rect x="28" y="335" width="255" height="40" rx="4" fill="rgba(8,51,68,0.12)" stroke="#22d3ee" stroke-width="0.6"/>
+        <text x="155" y="350" fill="#94a3b8" font-size="7" text-anchor="middle">Step 1: Rule Match</text>
+        <text x="155" y="365" fill="#64748b" font-size="6.5" text-anchor="middle">同列+同方向+同类型 → 归入一组</text>
+
+        <rect x="298" y="335" width="255" height="40" rx="4" fill="rgba(8,51,68,0.12)" stroke="#22d3ee" stroke-width="0.6"/>
+        <text x="425" y="350" fill="#94a3b8" font-size="7" text-anchor="middle">Step 2: Semantic Cluster</text>
+        <text x="425" y="365" fill="#64748b" font-size="6.5" text-anchor="middle">title 相似 > 0.8 → 合并为一组</text>
+
+        <rect x="568" y="335" width="268" height="40" rx="4" fill="rgba(8,51,68,0.2)" stroke="#22d3ee" stroke-width="1"/>
+        <text x="702" y="350" fill="#22d3ee" font-size="7" text-anchor="middle">Step 3: 输出 ClusteredInsight</text>
+        <text x="702" y="365" fill="#94a3b8" font-size="6.5" text-anchor="middle">{representative, confidence_agg, source_count}</text>
+
+        <!-- Detectors → Cluster -->
+        <line x1="92" y1="270" x2="120" y2="295" stroke="#64748b" stroke-width="1"/>
+        <line x1="262" y1="270" x2="300" y2="295" stroke="#64748b" stroke-width="1"/>
+        <line x1="432" y1="270" x2="432" y2="295" stroke="#64748b" stroke-width="1"/>
+        <line x1="602" y1="270" x2="580" y2="295" stroke="#64748b" stroke-width="1"/>
+        <line x1="772" y1="270" x2="800" y2="295" stroke="#64748b" stroke-width="1"/>
+
+        <!-- ============================================================
+             DATA MODEL: ClusteredInsight
+             ============================================================ -->
+        <rect x="870" y="25" width="260" height="180" rx="8" fill="#0f172a" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="1000" y="48" fill="#a78bfa" font-size="9" font-weight="600" text-anchor="middle">📦 ClusteredInsight 数据模型</text>
+        <text x="885" y="70" fill="#94a3b8" font-size="7">rep: Insight          # 代表洞察</text>
+        <text x="885" y="86" fill="#94a3b8" font-size="7">source_count: int     # 几个检测器发现</text>
+        <text x="885" y="102" fill="#94a3b8" font-size="7">sources: list[str]    # [trend, corr, season]</text>
+        <text x="885" y="118" fill="#94a3b8" font-size="7">conf_agg: float       # 聚合置信度</text>
+        <text x="885" y="134" fill="#64748b" font-size="7">conf_agg = max(各source.conf)</text>
+        <text x="885" y="150" fill="#64748b" font-size="7">         × (1 + 0.15 × source_count)</text>
+        <text x="885" y="166" fill="#a78bfa" font-size="7" text-anchor="middle">⚠ source_count ≥ 2 → 「强共识」信号</text>
+        <text x="885" y="182" fill="#a78bfa" font-size="7" text-anchor="middle">   置信度 × 1.3 加权</text>
+
+        <!-- ============================================================
+             SigGate + NEW RANKER
+             ============================================================ -->
+        <rect x="15" y="410" width="360" height="60" rx="8" fill="#0f172a" stroke="#fb7185" stroke-width="2"/>
+        <rect x="15" y="410" width="360" height="60" rx="8" fill="rgba(136,19,55,0.1)"/>
+        <text x="195" y="432" fill="#fb7185" font-size="10" font-weight="700" text-anchor="middle">⚠️ SignificanceGate</text>
+        <text x="195" y="450" fill="#94a3b8" font-size="7" text-anchor="middle">surprise 必须过: n≥30 + p&lt;0.05 → 否则 surprise=0</text>
+        <text x="195" y="464" fill="#64748b" font-size="6.5" text-anchor="middle">未通过的 insight 保留但不参与 surprise 计分</text>
+
+        <rect x="400" y="410" width="450" height="60" rx="8" fill="#0f172a" stroke="#fbbf24" stroke-width="2"/>
+        <rect x="400" y="410" width="450" height="60" rx="8" fill="rgba(251,191,36,0.08)"/>
+        <text x="625" y="432" fill="#fbbf24" font-size="10" font-weight="700" text-anchor="middle">🏆 InsightRanker (v3 评分) <tspan fill="#fbbf24" font-size="7" class="tag tag-chg">REVISED</tspan></text>
+        <!-- Score bars -->
+        <rect x="412" y="444" width="120" height="20" rx="3" fill="rgba(6,78,59,0.15)" stroke="#34d399" stroke-width="0.6"/>
+        <text x="472" y="458" fill="#34d399" font-size="7" text-anchor="middle">effect × 0.35</text>
+        <rect x="542" y="444" width="95" height="20" rx="3" fill="rgba(136,19,55,0.15)" stroke="#fb7185" stroke-width="0.6"/>
+        <text x="589" y="458" fill="#fb7185" font-size="7" text-anchor="middle">surprise* × 0.10</text>
+        <rect x="647" y="444" width="95" height="20" rx="3" fill="rgba(76,29,149,0.15)" stroke="#a78bfa" stroke-width="0.6"/>
+        <text x="694" y="458" fill="#a78bfa" font-size="7" text-anchor="middle">actionable × 0.30</text>
+        <rect x="752" y="444" width="85" height="20" rx="3" fill="rgba(8,51,68,0.15)" stroke="#22d3ee" stroke-width="0.6"/>
+        <text x="794" y="458" fill="#22d3ee" font-size="7" text-anchor="middle">conf × 0.25</text>
+
+        <line x1="195" y1="470" x2="400" y2="440" stroke="#fb7185" stroke-width="1.5" marker-end="url(#arr-rose)"/>
+
+        <!-- ============================================================
+             PUSH
+             ============================================================ -->
+        <rect x="400" y="495" width="450" height="45" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+        <rect x="400" y="495" width="450" height="45" rx="6" fill="rgba(6,78,59,0.1)"/>
+        <text x="625" y="515" fill="#34d399" font-size="9" font-weight="700" text-anchor="middle">📤 InsightPusher → 仅 explore 模式 SSE push → ChatPanel</text>
+        <text x="625" y="532" fill="#64748b" font-size="6.5" text-anchor="middle">analyze=存 AnalysisGraph  |  visualize=跳过全引擎</text>
+        <line x1="625" y1="470" x2="625" y2="493" stroke="#34d399" stroke-width="1.5" marker-end="url(#arr-green)"/>
+
+        <!-- ============================================================
+             STORY BRIDGE (v3: with HypothesisPruner)
+             ============================================================ -->
+        <rect x="15" y="565" width="1115" height="140" rx="10" fill="#0f172a" stroke="#a78bfa" stroke-width="2" stroke-dasharray="8,4"/>
+        <rect x="15" y="565" width="1115" height="140" rx="10" fill="rgba(76,29,149,0.05)"/>
+        <text x="572" y="590" fill="#a78bfa" font-size="11" font-weight="700" text-anchor="middle">🌉 Insight → Story Bridge (v3: 带 Pruner) <tspan fill="#a78bfa" font-size="7" class="tag tag-chg">REVISED</tspan></text>
+
+        <!-- Step 1: Insight → Hypothesis -->
+        <rect x="28" y="608" width="195" height="48" rx="6" fill="#0f172a" stroke="#a78bfa" stroke-width="1.5"/>
+        <rect x="28" y="608" width="195" height="48" rx="6" fill="rgba(76,29,149,0.15)"/>
+        <text x="125" y="627" fill="white" font-size="9" font-weight="700" text-anchor="middle">💡 Hypothesis 生成</text>
+        <text x="125" y="644" fill="#94a3b8" font-size="6.5" text-anchor="middle">Insight → 1 条假设</text>
+
+        <line x1="223" y1="632" x2="248" y2="632" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arr-purple)"/>
+
+        <!-- Step 2: HypothesisPruner — NEW -->
+        <rect x="253" y="598" width="215" height="68" rx="8" fill="#0f172a" stroke="#fb923c" stroke-width="2"/>
+        <rect x="253" y="598" width="215" height="68" rx="8" fill="rgba(251,146,60,0.12)"/>
+        <text x="360" y="620" fill="#fb923c" font-size="10" font-weight="700" text-anchor="middle">✂️ HypothesisPruner <tspan fill="#fb923c" font-size="7" class="tag tag-new">NEW</tspan></text>
+        <text x="360" y="640" fill="#94a3b8" font-size="7" text-anchor="middle">规则①: 每 insight 最多 3 条假设</text>
+        <text x="360" y="654" fill="#94a3b8" font-size="7" text-anchor="middle">规则②: score ≥ 0.4 才进入 graph</text>
+        <text x="360" y="665" fill="#64748b" font-size="6" text-anchor="middle">防 graph 爆炸 — 懒惰展开</text>
+
+        <line x1="468" y1="632" x2="493" y2="632" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arr-orange)"/>
+
+        <!-- Step 3: StoryNode -->
+        <rect x="498" y="608" width="195" height="48" rx="6" fill="#0f172a" stroke="#a78bfa" stroke-width="1.5"/>
+        <rect x="498" y="608" width="195" height="48" rx="6" fill="rgba(76,29,149,0.15)"/>
+        <text x="595" y="627" fill="white" font-size="9" font-weight="700" text-anchor="middle">🌲 StoryNode</text>
+        <text x="595" y="644" fill="#94a3b8" font-size="6.5" text-anchor="middle">挂载 AnalysisGraph</text>
+
+        <line x1="693" y1="632" x2="718" y2="632" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arr-purple)"/>
+
+        <!-- Step 4: Execution Semantics — NEW -->
+        <rect x="723" y="598" width="245" height="68" rx="8" fill="#0f172a" stroke="#34d399" stroke-width="2"/>
+        <rect x="723" y="598" width="245" height="68" rx="8" fill="rgba(6,78,59,0.12)"/>
+        <text x="845" y="620" fill="#34d399" font-size="10" font-weight="700" text-anchor="middle">⚡ Hypothesis Execution <tspan fill="#34d399" font-size="7" class="tag tag-new">NEW</tspan></text>
+        <text x="845" y="640" fill="#94a3b8" font-size="7" text-anchor="middle">假设 → 验证查询 → LLM 推理</text>
+        <text x="845" y="654" fill="#94a3b8" font-size="7" text-anchor="middle">结果: confirmed / rejected / uncertain</text>
+        <text x="845" y="665" fill="#64748b" font-size="6" text-anchor="middle">生成 follow-up 子节点</text>
+
+        <line x1="968" y1="632" x2="993" y2="632" stroke="#34d399" stroke-width="1.5" marker-end="url(#arr-green)"/>
+
+        <!-- Step 5: UI -->
+        <rect x="998" y="608" width="118" height="48" rx="6" fill="#0f172a" stroke="#22d3ee" stroke-width="1.5"/>
+        <rect x="998" y="608" width="118" height="48" rx="6" fill="rgba(8,51,68,0.15)"/>
+        <text x="1057" y="627" fill="white" font-size="9" font-weight="700" text-anchor="middle">🃏 Timeline</text>
+        <text x="1057" y="644" fill="#94a3b8" font-size="6.5" text-anchor="middle">ChatPanel 侧栏</text>
+
+        <!-- Bridge label -->
+        <text x="572" y="695" fill="#a78bfa" font-size="6.5" text-anchor="middle">Insight → Hypothesis → Pruner(top-k) → StoryNode → HypothesisExecution(验证推理) → Timeline</text>
+
+        <!-- ============================================================
+             CONSENSUS AMPLIFICATION — visual note
+             ============================================================ -->
+        <rect x="15" y="720" width="400" height="70" rx="8" fill="#0f172a" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4,3"/>
+        <text x="215" y="742" fill="#fbbf24" font-size="9" font-weight="700" text-anchor="middle">💡 核心洞察: Dedup 不应丢弃，应放大共识</text>
+        <text x="215" y="760" fill="#94a3b8" font-size="7" text-anchor="middle">1 个检测器发现 → conf × 1.0 (基础)</text>
+        <text x="215" y="774" fill="#94a3b8" font-size="7" text-anchor="middle">3 个检测器同发现 → conf × 1.3 (强共识!)</text>
+        <text x="215" y="786" fill="#64748b" font-size="6" text-anchor="middle">source_count 进入 ranking 公式 — 共识即信号</text>
+
+        <!-- Execution semantics note -->
+        <rect x="440" y="720" width="690" height="70" rx="8" fill="#0f172a" stroke="#34d399" stroke-width="2" stroke-dasharray="4,3"/>
+        <text x="785" y="742" fill="#34d399" font-size="9" font-weight="700" text-anchor="middle">⚡ Hypothesis Execution 不是生成 UI，是执行推理路径</text>
+        <text x="785" y="760" fill="#94a3b8" font-size="7" text-anchor="middle">验证: LLM + 数据查询 → 确认/否定/不确定 → 自动 follow-up</text>
+        <text x="785" y="774" fill="#94a3b8" font-size="7" text-anchor="middle">confirmed → 生成深度图表  |  rejected → 记录但隐藏  |  uncertain → 提示用户</text>
+        <text x="785" y="786" fill="#64748b" font-size="6" text-anchor="middle">这是 Batch 4 的核心发动机，比 UI 优先</text>
+
+        <!-- LEGEND -->
+        <text x="870" y="220" fill="white" font-size="8" font-weight="600">标记</text>
+        <rect x="870" y="228" width="10" height="7" rx="2" fill="#0f172a" stroke="#22d3ee" stroke-width="1"/><text x="886" y="234" fill="#64748b" font-size="6">v3 新增</text>
+        <rect x="870" y="240" width="10" height="7" rx="2" fill="#0f172a" stroke="#a78bfa" stroke-width="1"/><text x="886" y="246" fill="#64748b" font-size="6">修订</text>
+
+      </svg>
+    </div>
+
+    <!-- CARDS -->
+    <div class="cards">
+      <div class="card">
+        <div class="card-header"><div class="card-dot cyan"></div><h3>🔵 InsightCluster (v3 核心改动)</h3></div>
+        <ul>
+          <li>❌ 旧: Dedup → 丢弃重复 → signal 变弱</li>
+          <li>✅ 新: Cluster → 合并 + source_count 加权</li>
+          <li>• conf_agg = max(conf) × (1 + 0.15 × n_sources)</li>
+          <li>• 3 检测器共识 → 置信度 × 1.3</li>
+          <li>• 输出 ClusteredInsight(rep, sources, conf_agg)</li>
+          <li>• source_count 直接进入 ranking 公式</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-dot orange"></div><h3>✂️ HypothesisPruner (防爆炸)</h3></div>
+        <ul>
+          <li>• 规则①: 每个 insight 最多 3 条假设</li>
+          <li>• 规则②: score &lt; 0.4 的假设不进 graph</li>
+          <li>• 规则③: 用户未点击的分支不展开</li>
+          <li>• 预期: 初始 graph 5-8 个节点 (可控)</li>
+          <li>• 点击 [展开] → 懒加载子节点</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-dot emerald"></div><h3>⚡ Hypothesis Execution</h3></div>
+        <ul>
+          <li>• 优先级: 比 Batch 4 UI 更高</li>
+          <li>• LLM + 数据查询 → 验证假设</li>
+          <li>• 结果: confirmed / rejected / uncertain</li>
+          <li>• confirmed → 生成深度图表</li>
+          <li>• rejected → 记录原因隐藏</li>
+          <li>• uncertain → 标记并提示用户</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-header"><div class="card-dot amber"></div><h3>最终评分公式</h3></div>
+        <ul>
+          <li>effect_size × 0.35</li>
+          <li>surprise × 0.10 (须过 SigGate)</li>
+          <li>actionable × 0.30</li>
+          <li>confidence × 0.25 (含 source_count 加权)</li>
+          <li>source_count ≥ 2 → confidence 额外加成</li>
+          <li>阈值: ≥ 0.3 → 推送 (共识信号优先)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-dot rose"></div><h3>最终文件清单</h3></div>
+        <ul>
+          <li>services/insight_engine.py (~250行)</li>
+          <li>services/insight_cluster.py (~120行) <span class="tag tag-new">v3 NEW</span></li>
+          <li>services/significance_gate.py (~50行)</li>
+          <li>services/user_mode.py (~40行)</li>
+          <li>services/detectors/ (5 files, ~260行)</li>
+          <li>services/hypothesis_pruner.py (~70行) <span class="tag tag-new">NEW</span></li>
+          <li>services/hypothesis_executor.py (~150行) <span class="tag tag-new">NEW</span></li>
+          <li>models/insight.py (~80行)</li>
+          <li>index.html (+160行)</li>
+          <li>总计: ~1,180 行</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-dot violet"></div><h3>核心设计原则</h3></div>
+        <ul>
+          <li>共识即信号: 3 个检测器比 1 个更可信</li>
+          <li>懒惰展开: graph 不爆炸，用户点才展开</li>
+          <li>执行优先于展示: 先验证假设，再画 UI</li>
+          <li>不打扰优先: 默认 analyze，需授权才推</li>
+          <li>噪音过滤链: Cluster → SigGate → Pruner</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="footer">
+      Batch 3 v3 · Cluster(共识放大) + Pruner(防爆炸) + Execution(推理执行) · 下一步: 确认后拆任务
+    </p>
+  </div>
+</body>
+</html>

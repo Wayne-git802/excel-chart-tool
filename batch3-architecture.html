@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Batch 3 — InsightEngine 架构</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: white;
+    }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .header { margin-bottom: 2rem; }
+    .header-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+    .pulse-dot {
+      width: 12px; height: 12px; background: #fbbf24;
+      border-radius: 50%; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    h1 { font-size: 1.4rem; font-weight: 700; }
+    .subtitle { color: #94a3b8; font-size: 0.85rem; margin-left: 1.75rem; }
+    .diagram-container {
+      background: rgba(15,23,42,0.5); border-radius: 1rem;
+      border: 1px solid #1e293b; padding: 1.5rem; overflow-x: auto;
+    }
+    svg { width: 100%; min-width: 1000px; display: block; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-top: 2rem; }
+    .card {
+      background: rgba(15,23,42,0.5); border-radius: 0.75rem;
+      border: 1px solid #1e293b; padding: 1.25rem;
+    }
+    .card-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .card-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .card-dot.amber { background: #fbbf24; }
+    .card-dot.violet { background: #a78bfa; }
+    .card-dot.emerald { background: #34d399; }
+    .card-dot.rose { background: #fb7185; }
+    .card h3 { font-size: 0.85rem; font-weight: 600; }
+    .card ul { list-style: none; color: #94a3b8; font-size: 0.75rem; }
+    .card li { margin-bottom: 0.35rem; }
+    .footer { text-align: center; margin-top: 1.5rem; color: #475569; font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>🔍 Batch 3 — InsightEngine 架构设计</h1>
+      </div>
+      <p class="subtitle">主动数据探索 · 多维检测器 · 洞察排序 · 自动推送 → 图表</p>
+    </div>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1060 730">
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#64748b" />
+          </marker>
+          <marker id="arrow-amber" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#fbbf24" />
+          </marker>
+          <marker id="arrow-green" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#34d399" />
+          </marker>
+          <marker id="arrow-rose" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#fb7185" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+
+        <!-- Background -->
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- ============================================================
+             TRIGGER — 入口
+             ============================================================ -->
+        <rect x="30" y="40" width="170" height="60" rx="6" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5"/>
+        <rect x="30" y="40" width="170" height="60" rx="6" fill="rgba(120,53,15,0.3)"/>
+        <text x="115" y="63" fill="white" font-size="11" font-weight="600" text-anchor="middle">🎯 触发点 Trigger</text>
+        <text x="115" y="80" fill="#94a3b8" font-size="8" text-anchor="middle">① 文件上传后自动</text>
+        <text x="115" y="92" fill="#94a3b8" font-size="8" text-anchor="middle">② 用户说「分析一下」</text>
+
+        <!-- ============================================================
+             InsightEngine — 核心编排
+             ============================================================ -->
+        <rect x="260" y="25" width="240" height="95" rx="8" fill="#0f172a" stroke="#fbbf24" stroke-width="2"/>
+        <rect x="260" y="25" width="240" height="95" rx="8" fill="rgba(251,191,36,0.1)"/>
+        <text x="380" y="52" fill="#fbbf24" font-size="13" font-weight="700" text-anchor="middle">🧠 InsightEngine</text>
+        <text x="380" y="72" fill="#94a3b8" font-size="9" text-anchor="middle">编排器 — run(df, context)</text>
+        <text x="380" y="88" fill="#64748b" font-size="8" text-anchor="middle">并行调度 5 个检测器</text>
+        <text x="380" y="104" fill="#64748b" font-size="8" text-anchor="middle">收集结果 → InsightRanker → 推送</text>
+
+        <!-- ============================================================
+             INTAKE — 数据预处理
+             ============================================================ -->
+        <rect x="260" y="145" width="240" height="52" rx="6" fill="#0f172a" stroke="#fbbf24" stroke-width="1"/>
+        <rect x="260" y="145" width="240" height="52" rx="6" fill="rgba(251,191,36,0.05)"/>
+        <text x="380" y="168" fill="#94a3b8" font-size="10" font-weight="600" text-anchor="middle">📥 InsightIntake</text>
+        <text x="380" y="186" fill="#64748b" font-size="8" text-anchor="middle">列类型推断 · 缺失值统计 · 基数分析</text>
+
+        <!-- ============================================================
+             5 DETECTORS
+             ============================================================ -->
+
+        <!-- Detector 1: Trend -->
+        <rect x="44" y="230" width="190" height="95" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+        <rect x="44" y="230" width="190" height="95" rx="6" fill="rgba(6,78,59,0.3)"/>
+        <text x="139" y="255" fill="#34d399" font-size="11" font-weight="700" text-anchor="middle">📈 TrendDetector</text>
+        <text x="139" y="273" fill="#94a3b8" font-size="8" text-anchor="middle">线性回归斜率</text>
+        <text x="139" y="286" fill="#94a3b8" font-size="8" text-anchor="middle">移动平均交叉</text>
+        <text x="139" y="299" fill="#94a3b8" font-size="8" text-anchor="middle">拐点检测 (导数变号)</text>
+        <text x="139" y="316" fill="#34d399" font-size="7" text-anchor="middle">输出: TrendInsight[]</text>
+
+        <!-- Detector 2: Outlier -->
+        <rect x="256" y="230" width="190" height="95" rx="6" fill="#0f172a" stroke="#fb7185" stroke-width="1.5"/>
+        <rect x="256" y="230" width="190" height="95" rx="6" fill="rgba(136,19,55,0.3)"/>
+        <text x="351" y="255" fill="#fb7185" font-size="11" font-weight="700" text-anchor="middle">🔴 OutlierDetector</text>
+        <text x="351" y="273" fill="#94a3b8" font-size="8" text-anchor="middle">IQR 箱线法</text>
+        <text x="351" y="286" fill="#94a3b8" font-size="8" text-anchor="middle">Z-score > 3σ</text>
+        <text x="351" y="299" fill="#94a3b8" font-size="8" text-anchor="middle">Isolation Forest (可选)</text>
+        <text x="351" y="316" fill="#fb7185" font-size="7" text-anchor="middle">输出: OutlierInsight[]</text>
+
+        <!-- Detector 3: Correlation -->
+        <rect x="468" y="230" width="190" height="95" rx="6" fill="#0f172a" stroke="#a78bfa" stroke-width="1.5"/>
+        <rect x="468" y="230" width="190" height="95" rx="6" fill="rgba(76,29,149,0.3)"/>
+        <text x="563" y="255" fill="#a78bfa" font-size="11" font-weight="700" text-anchor="middle">🔗 CorrDetector</text>
+        <text x="563" y="273" fill="#94a3b8" font-size="8" text-anchor="middle">Pearson |r| ≥ 0.6</text>
+        <text x="563" y="286" fill="#94a3b8" font-size="8" text-anchor="middle">Spearman 秩相关</text>
+        <text x="563" y="299" fill="#94a3b8" font-size="8" text-anchor="middle">偏相关 (控制变量)</text>
+        <text x="563" y="316" fill="#a78bfa" font-size="7" text-anchor="middle">输出: CorrInsight[]</text>
+
+        <!-- Detector 4: Distribution -->
+        <rect x="680" y="230" width="190" height="95" rx="6" fill="#0f172a" stroke="#22d3ee" stroke-width="1.5"/>
+        <rect x="680" y="230" width="190" height="95" rx="6" fill="rgba(8,51,68,0.3)"/>
+        <text x="775" y="255" fill="#22d3ee" font-size="11" font-weight="700" text-anchor="middle">📊 DistAnalyzer</text>
+        <text x="775" y="273" fill="#94a3b8" font-size="8" text-anchor="middle">偏度 > 1 / 峰度 > 3</text>
+        <text x="775" y="286" fill="#94a3b8" font-size="8" text-anchor="middle">多模态检测</text>
+        <text x="775" y="299" fill="#94a3b8" font-size="8" text-anchor="middle">集中度 (Top3 占比)</text>
+        <text x="775" y="316" fill="#22d3ee" font-size="7" text-anchor="middle">输出: DistInsight[]</text>
+
+        <!-- Detector 5: Seasonal -->
+        <rect x="892" y="230" width="148" height="95" rx="6" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5"/>
+        <rect x="892" y="230" width="148" height="95" rx="6" fill="rgba(251,191,36,0.2)"/>
+        <text x="966" y="255" fill="#fbbf24" font-size="11" font-weight="700" text-anchor="middle">🔄 SeasonDetector</text>
+        <text x="966" y="273" fill="#94a3b8" font-size="8" text-anchor="middle">自相关 ACF</text>
+        <text x="966" y="286" fill="#94a3b8" font-size="8" text-anchor="middle">周期峰值提取</text>
+        <text x="966" y="299" fill="#94a3b8" font-size="8" text-anchor="middle">STL 分解(可选)</text>
+        <text x="966" y="316" fill="#fbbf24" font-size="7" text-anchor="middle">输出: SeasonInsight[]</text>
+
+        <!-- ============================================================
+             ARROWS — Detector → InsightEngine
+             ============================================================ -->
+
+        <!-- Trigger → InsightEngine -->
+        <line x1="200" y1="70" x2="258" y2="70" stroke="#fbbf24" stroke-width="2" marker-end="url(#arrow-amber)"/>
+        <text x="229" y="63" fill="#fbbf24" font-size="7" text-anchor="middle">df + context</text>
+
+        <!-- InsightEngine → Detectors (fork) -->
+        <line x1="380" y1="120" x2="139" y2="228" stroke="#64748b" stroke-width="1"/>
+        <line x1="380" y1="120" x2="351" y2="228" stroke="#64748b" stroke-width="1"/>
+        <line x1="380" y1="120" x2="563" y2="228" stroke="#64748b" stroke-width="1"/>
+        <line x1="380" y1="120" x2="775" y2="228" stroke="#64748b" stroke-width="1"/>
+        <line x1="380" y1="120" x2="966" y2="228" stroke="#64748b" stroke-width="1"/>
+        <text x="400" y="185" fill="#fbbf24" font-size="7" text-anchor="middle">并行调度 (asyncio.gather)</text>
+
+        <!-- ============================================================
+             InsightRanker — 评分排序
+             ============================================================ -->
+        <rect x="260" y="370" width="780" height="85" rx="8" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5"/>
+        <rect x="260" y="370" width="780" height="85" rx="8" fill="rgba(251,191,36,0.08)"/>
+        <text x="650" y="398" fill="white" font-size="12" font-weight="700" text-anchor="middle">🏆 InsightRanker — 评分 &amp; 排序 &amp; 去重</text>
+
+        <!-- Ranker internals -->
+        <rect x="278" y="413" width="150" height="30" rx="4" fill="rgba(6,78,59,0.2)" stroke="#34d399" stroke-width="0.8"/>
+        <text x="353" y="432" fill="#34d399" font-size="8" text-anchor="middle">effect_size (效果量)</text>
+
+        <rect x="442" y="413" width="130" height="30" rx="4" fill="rgba(136,19,55,0.2)" stroke="#fb7185" stroke-width="0.8"/>
+        <text x="507" y="432" fill="#fb7185" font-size="8" text-anchor="middle">surprise (意外度)</text>
+
+        <rect x="586" y="413" width="130" height="30" rx="4" fill="rgba(76,29,149,0.2)" stroke="#a78bfa" stroke-width="0.8"/>
+        <text x="651" y="432" fill="#a78bfa" font-size="8" text-anchor="middle">actionable (可操作性)</text>
+
+        <rect x="730" y="413" width="140" height="30" rx="4" fill="rgba(8,51,68,0.2)" stroke="#22d3ee" stroke-width="0.8"/>
+        <text x="800" y="432" fill="#22d3ee" font-size="8" text-anchor="middle">confidence (置信度)</text>
+
+        <rect x="884" y="413" width="140" height="30" rx="4" fill="rgba(251,191,36,0.2)" stroke="#fbbf24" stroke-width="0.8"/>
+        <text x="954" y="432" fill="#fbbf24" font-size="8" text-anchor="middle">总分 = 加权求和</text>
+
+        <!-- Detectors → Ranker -->
+        <line x1="139" y1="325" x2="310" y2="370" stroke="#64748b" stroke-width="1"/>
+        <line x1="351" y1="325" x2="450" y2="370" stroke="#64748b" stroke-width="1"/>
+        <line x1="563" y1="325" x2="590" y2="370" stroke="#64748b" stroke-width="1"/>
+        <line x1="775" y1="325" x2="730" y2="370" stroke="#64748b" stroke-width="1"/>
+        <line x1="966" y1="325" x2="950" y2="370" stroke="#64748b" stroke-width="1"/>
+
+        <!-- ============================================================
+             TOP-3 → PUSH
+             ============================================================ -->
+        <rect x="260" y="490" width="370" height="65" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+        <rect x="260" y="490" width="370" height="65" rx="6" fill="rgba(6,78,59,0.15)"/>
+        <text x="445" y="515" fill="#34d399" font-size="11" font-weight="700" text-anchor="middle">📤 InsightPusher → ChatPanel</text>
+        <text x="445" y="533" fill="#94a3b8" font-size="8" text-anchor="middle">取 Top-3 洞察</text>
+        <text x="445" y="548" fill="#94a3b8" font-size="8" text-anchor="middle">封装为 InsightCard 消息 → SSE push → 前端渲染</text>
+
+        <!-- Ranker → Pusher -->
+        <line x1="445" y1="455" x2="445" y2="488" stroke="#34d399" stroke-width="2" marker-end="url(#arrow-green)"/>
+        <text x="460" y="475" fill="#34d399" font-size="7">Top-3</text>
+
+        <!-- ============================================================
+             FRONTEND — InsightCard
+             ============================================================ -->
+        <rect x="680" y="490" width="360" height="65" rx="6" fill="#0f172a" stroke="#22d3ee" stroke-width="1.5"/>
+        <rect x="680" y="490" width="360" height="65" rx="6" fill="rgba(8,51,68,0.15)"/>
+        <text x="860" y="515" fill="#22d3ee" font-size="11" font-weight="700" text-anchor="middle">🃏 InsightCard 前端组件</text>
+        <text x="860" y="533" fill="#94a3b8" font-size="8" text-anchor="middle">可交互卡片: 标题 + 摘要 + 置信度条 +</text>
+        <text x="860" y="548" fill="#94a3b8" font-size="8" text-anchor="middle">[生成图表] 按钮 → 直接调用 ChartBuilder</text>
+
+        <!-- Pusher → InsightCard -->
+        <line x1="630" y1="522" x2="678" y2="522" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <text x="655" y="516" fill="#22d3ee" font-size="7">SSE event</text>
+
+        <!-- ============================================================
+             DATA MODEL — 右侧
+             ============================================================ -->
+        <rect x="680" y="590" width="360" height="120" rx="8" fill="#0f172a" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="6,3"/>
+        <text x="700" y="610" fill="#a78bfa" font-size="9" font-weight="600">📦 新增数据模型 (models/insight.py)</text>
+
+        <text x="700" y="630" fill="#94a3b8" font-size="8">@dataclass Insight:</text>
+        <text x="710" y="646" fill="#64748b" font-size="7">type: str (trend/outlier/corr/distribution/seasonal)</text>
+        <text x="710" y="660" fill="#64748b" font-size="7">title: str · description: str · score: float</text>
+        <text x="710" y="674" fill="#64748b" font-size="7">effect_size: float · confidence: float</text>
+        <text x="710" y="688" fill="#64748b" font-size="7">chart_spec_hint: dict  # 推荐图表参数</text>
+        <text x="710" y="704" fill="#a78bfa" font-size="7">columns: list[str] · payload: dict  # 原始数据</text>
+
+        <!-- ============================================================
+             DEPENDENCIES — 已有模块
+             ============================================================ -->
+        <rect x="44" y="490" width="170" height="100" rx="6" fill="#0f172a" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="129" y="510" fill="#64748b" font-size="9" font-weight="600" text-anchor="middle">依赖已有模块</text>
+        <text x="129" y="528" fill="#475569" font-size="7" text-anchor="middle">services/analyzer.py</text>
+        <text x="129" y="542" fill="#475569" font-size="7" text-anchor="middle">→ build_analysis(df)</text>
+        <text x="129" y="560" fill="#475569" font-size="7" text-anchor="middle">services/chat_service.py</text>
+        <text x="129" y="574" fill="#475569" font-size="7" text-anchor="middle">→ SSE push 通道</text>
+        <text x="129" y="588" fill="#475569" font-size="7" text-anchor="middle">statistics / numpy</text>
+
+        <!-- Trigger detail -->
+        <rect x="44" y="620" width="170" height="90" rx="6" fill="#0f172a" stroke="#fbbf24" stroke-width="0.8" stroke-dasharray="3,2"/>
+        <text x="129" y="642" fill="#fbbf24" font-size="8" font-weight="600" text-anchor="middle">触发时机</text>
+        <text x="129" y="660" fill="#64748b" font-size="7" text-anchor="middle">① POST /api/analyze</text>
+        <text x="129" y="674" fill="#64748b" font-size="7" text-anchor="middle">   成功后自动触发</text>
+        <text x="129" y="692" fill="#64748b" font-size="7" text-anchor="middle">② 用户消息含关键词:</text>
+        <text x="129" y="706" fill="#64748b" font-size="7" text-anchor="middle">   "分析" "探索" "洞察"</text>
+
+        <!-- ============================================================
+             LEGEND
+             ============================================================ -->
+        <text x="44" y="185" fill="white" font-size="9" font-weight="600">图例</text>
+        <rect x="44" y="194" width="12" height="8" rx="2" fill="rgba(6,78,59,0.3)" stroke="#34d399" stroke-width="1"/>
+        <text x="62" y="201" fill="#64748b" font-size="7">趋势</text>
+        <rect x="100" y="194" width="12" height="8" rx="2" fill="rgba(136,19,55,0.3)" stroke="#fb7185" stroke-width="1"/>
+        <text x="118" y="201" fill="#64748b" font-size="7">异常</text>
+        <rect x="156" y="194" width="12" height="8" rx="2" fill="rgba(76,29,149,0.3)" stroke="#a78bfa" stroke-width="1"/>
+        <text x="174" y="201" fill="#64748b" font-size="7">相关</text>
+        <rect x="212" y="194" width="12" height="8" rx="2" fill="rgba(8,51,68,0.3)" stroke="#22d3ee" stroke-width="1"/>
+        <text x="230" y="201" fill="#64748b" font-size="7">分布</text>
+        <rect x="268" y="194" width="12" height="8" rx="2" fill="rgba(251,191,36,0.2)" stroke="#fbbf24" stroke-width="1"/>
+        <text x="286" y="201" fill="#64748b" font-size="7">周期</text>
+
+      </svg>
+    </div>
+
+    <!-- Cards -->
+    <div class="cards">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot amber"></div>
+          <h3>核心流程</h3>
+        </div>
+        <ul>
+          <li>① Trigger → InsightEngine.run(df, context)</li>
+          <li>② InsightIntake: 列类型推断 + 基数分析</li>
+          <li>③ 5 个检测器并行 (asyncio.gather)</li>
+          <li>④ InsightRanker: 加权评分 → Top-3</li>
+          <li>⑤ InsightPusher: SSE push → ChatPanel 渲染</li>
+          <li>⑥ 用户点击 [生成图表] → ChartBuilder</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot violet"></div>
+          <h3>评分公式</h3>
+        </div>
+        <ul>
+          <li>score = 0.35 × effect_size_norm</li>
+          <li>+ 0.25 × surprise (与基线偏离度)</li>
+          <li>+ 0.25 × actionable (能否生成图表)</li>
+          <li>+ 0.15 × confidence (p-value / 样本量)</li>
+          <li>去重: 同列+同类型取最高分</li>
+          <li>阈值: score ≥ 0.3 才推送</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot emerald"></div>
+          <h3>新增文件清单</h3>
+        </div>
+        <ul>
+          <li>services/insight_engine.py (~200行)</li>
+          <li>services/detectors/trend.py (~60行)</li>
+          <li>services/detectors/outlier.py (~50行)</li>
+          <li>services/detectors/correlation.py (~40行)</li>
+          <li>services/detectors/distribution.py (~50行)</li>
+          <li>services/detectors/seasonal.py (~60行)</li>
+          <li>models/insight.py (~40行)</li>
+          <li>index.html — InsightCard 组件 (~80行)</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="footer">
+      Batch 3 — InsightEngine · 主动数据探索 · 5 检测器并行 · 洞察卡片推送
+    </p>
+  </div>
+</body>
+</html>

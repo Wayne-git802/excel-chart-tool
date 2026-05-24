@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+/* ===== Design System: Navy Glass ===== */
+:root {
+    --bg-deep: #0a0f1e;
+    --bg-surface: rgba(255,255,255,0.04);
+    --border-subtle: rgba(255,255,255,0.06);
+}
+
+* { transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease; }
+
+/* Card base — glass effect */
+.card {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl p-6;
+}
+
+/* Buttons */
+.btn-primary {
+    @apply bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-medium px-6 py-2 rounded-xl shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all duration-300;
+}
+.btn-primary:disabled {
+    @apply opacity-50 cursor-not-allowed;
+}
+.btn-secondary {
+    @apply bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 px-4 py-2 rounded-xl transition-all duration-300;
+}
+
+/* Inputs & Selects */
+select, input[type="text"] {
+    @apply bg-white/5 border border-white/10 text-gray-100 rounded-xl px-3 py-2 w-full focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 outline-none transition-all duration-300;
+}
+select option {
+    @apply bg-[#1a1f2e] text-gray-100;
+}
+
+/* Upload zone */
+.upload-zone {
+    @apply border-2 border-dashed border-white/10 rounded-xl p-10 text-center hover:border-blue-400/50 transition-all duration-300 cursor-pointer;
+}
+.upload-zone:hover {
+    box-shadow: 0 0 30px rgba(96, 165, 250, 0.08);
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(96, 165, 250, 0.05); }
+    50% { box-shadow: 0 0 40px rgba(96, 165, 250, 0.12); }
+}
+
+/* Neon spinner */
+.spinner-neon {
+    @apply animate-spin rounded-full;
+    border: 2px solid rgba(96, 165, 250, 0.3);
+    border-top-color: #60a5fa;
+}
+
+/* Type badges */
+.badge-numeric {
+    @apply bg-blue-500/15 text-blue-300 border border-blue-500/20 px-2 py-0.5 rounded text-xs;
+}
+.badge-date {
+    @apply bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded text-xs;
+}
+.badge-category {
+    @apply bg-purple-500/15 text-purple-300 border border-purple-500/20 px-2 py-0.5 rounded text-xs;
+}
+.badge-chart-type {
+    @apply bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded text-xs;
+}
+
+/* Steps */
+.step-circle-active {
+    @apply w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold;
+    background: linear-gradient(135deg, #3b82f6, #a855f7);
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.4);
+    color: white;
+}
+.step-circle-inactive {
+    @apply w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold;
+    background: rgba(255,255,255,0.08);
+    color: #6b7280;
+}
+.step-line-active {
+    background: linear-gradient(90deg, #3b82f6, #a855f7);
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+}
+.step-line-inactive {
+    background: rgba(255,255,255,0.08);
+}
+
+/* Table */
+.table-header { @apply bg-white/5; }
+.table-row { @apply border-b border-white/5; }
+.table-row:hover { @apply bg-white/5; }
+
+/* Recommendation cards */
+.rec-card {
+    @apply border border-white/10 rounded-xl p-3 mb-2 cursor-pointer transition-all duration-300;
+}
+.rec-card:hover {
+    @apply border-blue-400/30;
+    transform: scale(1.02);
+    box-shadow: 0 4px 20px rgba(96, 165, 250, 0.1);
+}
+
+/* Template cards */
+.tpl-card {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-3 mb-2 transition-all duration-300;
+}
+.tpl-card:hover {
+    @apply border-blue-400/30;
+    box-shadow: 0 4px 20px rgba(96, 165, 250, 0.08);
+}
+
+/* Chart preview dark container */
+.chart-preview-container {
+    @apply bg-[#0a0f1e]/50 border border-white/5 rounded-2xl;
+}
+
+/* Export preview */
+.export-bg {
+    @apply bg-[#0a0f1e]/50 border border-white/5 rounded-xl;
+}
+
+/* Error banner */
+.error-banner {
+    @apply bg-red-500/5 border border-red-500/20 rounded-xl;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* Step transitions */
+[x-cloak] { display: none !important; }
+.step-transition {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Checkbox dark styling */
+input[type="checkbox"] {
+    accent-color: #3b82f6;
+}
+
+/* Toast slide-in animation */
+@keyframes slide-in {
+    from { opacity: 0; transform: translateX(50px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-in { animation: slide-in 0.3s ease-out; }
