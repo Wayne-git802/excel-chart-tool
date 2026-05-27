@@ -200,27 +200,43 @@ class AnalysisOrchestrator:
 
             step.status = "running"
 
-            # ── chart_builder: deterministic path (no LLM for args) ──
+            # ── chart_builder: deterministic path (v10 contract) ──
             if step.tool == "chart_builder" and df is not None:
-                from core.contract.contract import contract_entry, select_columns
-                from core.contract.registry import build_column_registry
+                from core.contract.v10_contract import resolve
+                from core.ir.contract import AnalysisIntent
+                from core.profiling.profiler import DataProfiler
+                from core.profiling.transformer import StateTransformer
 
-                registry = build_column_registry(state.columns)
-                cols = select_columns(df, registry)
-                args = {
-                    "type": step.chart_hint or "bar",
-                    "x": cols["x"],
-                    "y": cols["y"],
-                    "title": step.goal or "",
+                # Build profile + context
+                profile = DataProfiler.enhance(state.columns, df)
+                ctx = StateTransformer.transform(profile, None, df)
+                intent = AnalysisIntent(
+                    type="overview",
+                    confidence=0.7,
+                    explicit_chart=step.chart_hint if step.chart_hint else None,
+                )
+                decision, ledger = resolve(ctx, intent)
+
+                # Save ledger to state
+                state.ledger = ledger
+                try:
+                    from state.manager import StateManager
+                except Exception:
+                    pass
+
+                ce_result = {
+                    "chart_type": decision.chart_type,
+                    "x": decision.x_column,
+                    "y": decision.y_columns,
+                    "title": decision.title,
+                    "status": "approved" if not decision.is_none() else "rejected",
+                    "trace_id": profile.hash,
+                    "narratives": [],
+                    "explanation": [f"v10 rule: {ledger.steps[-1].rule_applied if ledger.steps else 'n/a'}"],
+                    "_locked": True,
                 }
                 tools_used.append("chart_builder")
-
-                inp = {
-                    "args": args, "df": df, "columns": state.columns,
-                    "message": message, "policy": "exploratory",
-                }
-                ce_result = contract_entry(inp)
-                _dl(f"[DIAG] contract_entry status={ce_result['status']} type={ce_result['chart_type']}")
+                _dl(f"[V10] contract status={ce_result['status']} type={ce_result['chart_type']} because={ledger.steps[-1].rule_applied if ledger.steps else 'n/a'}")
 
                 # Record structured artifact (PENDING until execution confirms)
                 from models.agent_state import ChartArtifact, ArtifactStatus
@@ -230,7 +246,7 @@ class AnalysisOrchestrator:
                     x_column=ce_result["x"],
                     y_columns=ce_result["y"],
                     title=ce_result["title"],
-                    resolved_by="contract_entry",
+                    resolved_by="v10_contract",
                     source_step="chart_builder",
                     status=ArtifactStatus.PENDING,
                 )
