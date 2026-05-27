@@ -10,6 +10,7 @@ Structured to support:
   - Cross-session persistence via StateManager
 """
 from __future__ import annotations
+import dataclasses
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal, Any
@@ -557,7 +558,7 @@ class AgentState:
             "analysis_plan": self.analysis_plan,
             "plan_generated": self.plan_generated,
             "plan_current_idx": self.plan_current_idx,
-            "plan_progress": [s.to_dict() for s in self.plan_progress],
+            "plan_progress": [dataclasses.asdict(s) for s in self.plan_progress],
             "analysis_trace": [t.to_dict() if hasattr(t, 'to_dict') else
                                {"step_id": t.step_id, "goal": t.goal, "tool": t.tool,
                                 "observation_summary": t.observation_summary,
@@ -593,7 +594,7 @@ class AgentState:
             analysis_plan=d.get("analysis_plan", []),
             plan_generated=d.get("plan_generated", False),
             plan_current_idx=d.get("plan_current_idx", 0),
-            plan_progress=[PlanStep.from_dict(s) for s in d.get("plan_progress", [])],
+            plan_progress=[PlanStep(**s) if isinstance(s, dict) else s for s in d.get("plan_progress", [])],
             analysis_trace=[TraceEntry(**t) if isinstance(t, dict) else t
                             for t in d.get("analysis_trace", [])],
             active_paths=d.get("active_paths", []),
@@ -617,36 +618,6 @@ class AgentState:
 # ═══════════════════════════════════════════════════════════════
 # PlanStep — structured execution planning (Phase 3)
 # ═══════════════════════════════════════════════════════════════
-
-@dataclass
-class PlanStep:
-    """A single step in the agent's execution plan."""
-    id: int
-    goal: str = ""                        # "找出月度销售趋势"
-    node_type: str = "intent_response"    # NodeType value
-    params: dict = field(default_factory=dict)   # {"columns": [...], "chart_type": "line"}
-    depends_on: list = field(default_factory=list)  # [step_id, ...]
-    status: str = "pending"               # pending | running | done | failed | skipped
-    result: dict | None = None
-    confidence: float = 0.0
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id, "goal": self.goal, "node_type": self.node_type,
-            "params": self.params, "depends_on": self.depends_on,
-            "status": self.status, "result": self.result, "confidence": self.confidence,
-        }
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "PlanStep":
-        return cls(
-            id=d.get("id", 0), goal=d.get("goal", ""),
-            node_type=d.get("node_type", "intent_response"),
-            params=d.get("params", {}), depends_on=d.get("depends_on", []),
-            status=d.get("status", "pending"), result=d.get("result"),
-            confidence=d.get("confidence", 0.0),
-        )
-
 
 # ── Plan Execution Graph ─────────────────────────────────────
 
