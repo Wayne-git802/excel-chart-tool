@@ -261,6 +261,7 @@ class UserPreferences:
 # ═══════════════════════════════════════════════════════════════
 
 class ArtifactStatus(str, Enum):
+    PENDING = "pending"      # contract validated, awaiting execution
     APPROVED = "approved"
     DEGRADED = "degraded"
     REPAIRED = "repaired"
