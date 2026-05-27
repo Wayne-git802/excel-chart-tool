@@ -1143,6 +1143,14 @@ class ChatService:
         decision = self.router.route(message)
         _dlog(f"[ROUTE] '{message[:60]}' → {decision.route}/{decision.execution_mode}")
 
+        # ── v10 CapabilityGate Layer A ──
+        from core.routing.capability_gate import layer_a_check
+        cap = layer_a_check(message)
+        if not cap.allowed:
+            yield {"event": "error", "data": {"message": cap.reason}}
+            yield {"event": "done", "data": {"latency_ms": 0, "steps": 0}}
+            return
+
         # Dispatch by execution_mode
         if decision.execution_mode == "single_reply":
             async for event in self._handle_greeting(message, logger, t_start):
@@ -1169,6 +1177,33 @@ class ChatService:
                     yield {"event": evt.type, "data": evt.payload}
                 else:
                     yield evt  # backward compat for old-style dict events
+
+            # ── v10 Narrator: extract chart facts + narrate ──
+            if state.execution_artifacts and df is not None:
+                try:
+                    from core.narration.chart_facts import ChartFactsExtractor
+                    from core.narration.narrator import Narrator
+                    from core.ir.contract import ChartDecision
+                    from core.profiling.profiler import DataProfiler
+                    from core.profiling.transformer import StateTransformer
+
+                    last_artifact = state.execution_artifacts[-1]
+                    profile = DataProfiler.enhance(state.columns, df)
+                    ctx = StateTransformer.transform(profile, None, df)
+                    decision = ChartDecision(
+                        chart_type=last_artifact.chart_type,
+                        x_column=last_artifact.x_column,
+                        y_columns=last_artifact.y_columns,
+                        title=last_artifact.title,
+                        decision_source='profile_rule',
+                    )
+                    facts = ChartFactsExtractor.extract(decision, ctx, df)
+                    narrator = Narrator(lambda s, q: '')
+                    narration_text = narrator._fallback_narrate(facts)
+                    if narration_text:
+                        yield {'event': 'narration', 'data': {'content': narration_text}}
+                except Exception:
+                    pass
 
     # ── Handler: greeting ────────────────────────────────────
 
