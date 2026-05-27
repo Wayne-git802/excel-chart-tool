@@ -1,5 +1,3 @@
-import os
-_DEBUG_LOG = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "logs", "debug.log")
 """Analysis Orchestrator — plan → execute → trace → synthesize.
 
 Orchestrates the full analysis pipeline: InputGate → Plan → Execute → Synthesize.
@@ -7,6 +5,8 @@ Yields SSEEvent objects for streaming consumption.
 """
 
 from __future__ import annotations
+import os
+_DEBUG_LOG = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "logs", "debug.log")
 from typing import AsyncGenerator
 import json, os, re, time, traceback
 import aiohttp

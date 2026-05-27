@@ -60,12 +60,12 @@ USE_FAKE_LLM = os.environ.get("FAKE_LLM", "0") == "1"
 import builtins
 def _dlog(msg):
     try:
-        with builtins.open(os.path.join(_PROJECT_ROOT, "logs", debug.log", "a", encoding="utf-8") as f:
+        with builtins.open(os.path.join(_PROJECT_ROOT, "logs", "debug.log"), "a", encoding="utf-8") as f:
             f.write(msg + "\n")
             f.flush()
     except Exception as e:
         try:
-            with builtins.open(os.path.join(_PROJECT_ROOT, "logs", debug_err.log", "a", encoding="utf-8") as f:
+            with builtins.open(os.path.join(_PROJECT_ROOT, "logs", "debug_err.log"), "a", encoding="utf-8") as f:
                 f.write(f"DL_FAIL: {e}\n")
         except:
             pass
@@ -753,7 +753,7 @@ class ActionDispatcher:
         chart_type = args.get("type", "bar")
         import builtins as _bi3
         try:
-            with _bi3.open(os.path.join(_PROJECT_ROOT, "logs", debug.log","a",encoding="utf-8") as f:
+            with _bi3.open(os.path.join(_PROJECT_ROOT, "logs", "debug.log"),"a",encoding="utf-8") as f:
                 f.write(f"[DIAG] _handle_chart_builder ENTRY: type={chart_type}, x={args.get('x')}, y={args.get('y')}\n")
         except: pass
         x_column = args.get("x", "")
