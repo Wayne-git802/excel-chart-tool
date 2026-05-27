@@ -42,45 +42,61 @@ ROUTE_MODE = {
 
 
 # ===========================================================================
-# Explicit chart command detection
+# Intent scoring — replaces lexical AND-gate
 # ===========================================================================
-# Only trigger direct_visualization when user explicitly specifies BOTH:
-#   (a) a chart type word
-#   (b) a visualization verb
-# Otherwise → analysis (analytic intent, need LLM to decide)
+# Chart type is detected by keyword presence.
+# Intent (direct command vs question vs comparison) is scored by heuristics.
+# Score ≥ 3 → direct_visualization. Score ≥ 1 → analysis. Score 0 → fallback.
 
 _CHART_TYPE_WORDS = [
-    "柱状图", "柱形图", "条形图",
-    "折线图", "曲线图",
-    "饼图", "环形图",
-    "散点图", "气泡图",
-    "热力图",
-    "箱线图", "箱形图",
+    "柱状图", "柱形图", "条形图", "柱状", "条形",
+    "折线图", "曲线图", "折线", "曲线",
+    "饼图", "环形图", "饼图", "环形",
+    "散点图", "气泡图", "散点", "气泡",
+    "热力图", "热力",
+    "箱线图", "箱形图", "箱线", "箱形",
     "面积图",
     "雷达图",
     "漏斗图",
     "仪表盘",
-    "直方图",
+    "直方图", "直方",
     "堆叠图",
     "树图",
 ]
 
-_VIS_VERBS = [
-    "画", "画个", "画一张",
-    "生成", "生成一个",
-    "用", "用一个", "用...展示",
-    "展示", "给我看",
-    "绘制", "作图",
-    "plot", "visualize", "draw",
-    "做个", "做个图",
-]
+_QUESTION_PATTERNS = ["吗", "什么", "为什么", "如何", "怎么", "哪个", "哪种", "能不能", "?"]
+_COMPARISON_PATTERNS = ["比较", "对比", " vs ", "还是", "哪个好", "哪种好", "更好"]
+_CONTEXT_PATTERNS = ["刚才", "那个", "之前的", "上一个", "刚刚的"]
 
 
-def _has_explicit_chart_command(message: str) -> bool:
-    """User explicitly specified chart type AND visualization verb."""
-    has_chart = any(w in message for w in _CHART_TYPE_WORDS)
-    has_verb = any(v in message for v in _VIS_VERBS)
-    return has_chart and has_verb
+def _has_chart_word(message: str) -> bool:
+    return any(w in message for w in _CHART_TYPE_WORDS)
+
+
+def _is_question(message: str) -> bool:
+    return any(p in message for p in _QUESTION_PATTERNS)
+
+
+def _is_comparison(message: str) -> bool:
+    return any(p in message.lower() for p in _COMPARISON_PATTERNS)
+
+
+def _is_context_reference(message: str) -> bool:
+    return any(p in message for p in _CONTEXT_PATTERNS)
+
+
+def _score_direct_viz(message: str) -> int:
+    """Intent score: has_chart=+2, question=-2, comparison=-1, context=-1. ≥2→direct."""
+    score = 0
+    if _has_chart_word(message):
+        score += 2
+    if _is_question(message):
+        score -= 2
+    if _is_comparison(message):
+        score -= 1
+    if _is_context_reference(message):
+        score -= 1
+    return score
 
 
 # ---------------------------------------------------------------------------
@@ -143,12 +159,14 @@ class ConversationRouter:
         if _match_data_quality(message):
             return self._build_decision("data_quality", 0.95, message)
 
-        # Step 3: direct visualization (explicit chart command)
-        if _has_explicit_chart_command(message):
-            return self._build_decision("direct_visualization", 0.95, message)
+        # Step 3: intent scoring — chart word + context signals
+        score = _score_direct_viz(message)
+        if score >= 2:
+            return self._build_decision("direct_visualization", min(0.5 + score * 0.15, 0.95), message)
 
-        # Step 4: fallback — analysis (analytic intent)
-        return self._build_decision("analysis", 0.7, message)
+        # Step 4: analysis (has chart intent or general fallback)
+        conf = 0.7 if score >= 1 else 0.5
+        return self._build_decision("analysis", conf, message)
 
     def _build_decision(self, route: str, confidence: float, message: str) -> RouteDecision:
         """Assemble RouteDecision from route template."""

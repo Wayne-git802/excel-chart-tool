@@ -20,7 +20,7 @@ from services.input_gate import InputGate
 from services.plan_pruner import PlanPruner
 from services.budget_controller import BudgetController
 from services.execution_guard import ExecutionGuard
-from services.chart_selector import select_chart_type_with_context
+from services.chart_selector import select_chart_type_with_context, select_chart_type
 
 API_URL = "https://api.deepseek.com/chat/completions"
 DEFAULT_MODEL = "deepseek-chat"
@@ -29,6 +29,16 @@ MAX_STEPS = 8
 TRACE_LIMIT = 200
 MAX_NARRATIVE_CHARS = 800
 NARRATIVE_SIMILARITY_THRESHOLD = 0.85
+
+
+def _reorder(plan: list) -> list:
+    """Pure function. chart_builder MUST run before annotation_engine.
+    Returns NEW list, does NOT mutate input."""
+    chart_steps = [s for s in plan if s.tool == "chart_builder"]
+    anno_steps = [s for s in plan if s.tool == "annotation_engine"]
+    other_steps = [s for s in plan if s.tool not in ("chart_builder", "annotation_engine")]
+    return chart_steps + other_steps + anno_steps
+
 
 VALID_CHART_TYPES = {"line", "bar", "scatter", "histogram", "pie", "boxplot"}
 NODE_TOOLS = {
@@ -88,6 +98,14 @@ def summarize_old_traces(traces: list[dict], max_chars: int = 300) -> str:
     return "\n".join(reversed(lines))
 
 
+import builtins as _bi2
+try:
+    with _bi2.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log","a",encoding="utf-8") as f:
+        f.write("[ORCH_IMPORT] analysis_orchestrator loaded v2\n")
+except: pass
+# DEBUG: force a deliberate side effect
+_bi2.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log","a",encoding="utf-8").write("[ORCH_MODULE] module loaded at top level\n")
+
 class AnalysisOrchestrator:
     """Plan → Execute → Trace → Synthesize. Yields SSEEvent objects."""
 
@@ -108,6 +126,11 @@ class AnalysisOrchestrator:
         chart_theme: str = "light",
         style_template: str = "clean",
     ) -> AsyncGenerator[SSEEvent, None]:
+        _dl2 = _bi2
+        try:
+            with _dl2.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log","a",encoding="utf-8") as f:
+                f.write(f"[ORCH_RUN] message={message[:50]}\n")
+        except: pass
         logger = SessionLogger(session_id)
         t_start = time.time()
 
@@ -131,6 +154,9 @@ class AnalysisOrchestrator:
             yield SSEEvent(type="error", payload={"message": "无法生成分析计划"})
             yield SSEEvent(type="done", payload={"latency_ms": 0, "steps": 0})
             return
+
+        # Invariant: all plans (LLM/fallback/direct) must pass reorder
+        plan = _reorder(plan)
 
         errors = validate_plan_graph(plan)
         if errors:
@@ -171,9 +197,101 @@ class AnalysisOrchestrator:
                 continue
 
             step.status = "running"
-            system_prompt = self._build_step_prompt(
-                state, step, step_idx, plan, prev_narrative
-            )
+
+            # ── chart_builder: deterministic path (no LLM for args) ──
+            if step.tool == "chart_builder" and df is not None:
+                from services.execution_contract import contract_entry, select_columns
+                from services.column_registry import build_column_registry
+
+                registry = build_column_registry(state.columns)
+                cols = select_columns(df, registry)
+                args = {
+                    "type": step.chart_hint or "bar",
+                    "x": cols["x"],
+                    "y": cols["y"],
+                    "title": step.goal or "",
+                }
+                tools_used.append("chart_builder")
+
+                inp = {
+                    "args": args, "df": df, "columns": state.columns,
+                    "message": message, "policy": "exploratory",
+                }
+                ce_result = contract_entry(inp)
+                _dl(f"[DIAG] contract_entry status={ce_result['status']} type={ce_result['chart_type']}")
+
+                # Record structured artifact (PENDING until execution confirms)
+                from models.agent_state import ChartArtifact, ArtifactStatus
+                artifact = ChartArtifact(
+                    step_id=step.id,
+                    chart_type=ce_result["chart_type"],
+                    x_column=ce_result["x"],
+                    y_columns=ce_result["y"],
+                    title=ce_result["title"],
+                    resolved_by="contract_entry",
+                    source_step="chart_builder",
+                    status=ArtifactStatus.PENDING,
+                )
+                state.add_artifact(artifact)
+
+                args = {
+                    "type": ce_result["chart_type"],
+                    "x": ce_result["x"],
+                    "y": ce_result["y"],
+                    "title": ce_result["title"],
+                }
+
+                for n in ce_result["narratives"]:
+                    if not _is_narrative_dup(n, prev_narrative):
+                        yield SSEEvent(type="narrative", payload={"content": n})
+                        prev_narrative = n
+
+                if ce_result["status"] == "rejected":
+                    yield SSEEvent(type="error", payload={"message": "图表生成被拒绝"})
+                    step.status = "failed"
+                    continue
+
+                _dl(f"[DIAG] final args to execute_one: type={args.get('type')}, x={args.get('x')}, y={args.get('y')}")
+                exe_result = self.dispatcher.execute_one(
+                    tool="chart_builder", args=args, df=df, state=state,
+                    theme=theme, chart_theme=chart_theme, style_template=style_template,
+                    message=message,
+                )
+
+                if exe_result.get("ok"):
+                    artifact.status = ArtifactStatus.APPROVED if ce_result["status"] == "approved" else ArtifactStatus.DEGRADED
+                    rd = exe_result.get("result", {})
+                    if isinstance(rd, dict) and rd.get("chart_spec"):
+                        chart_count += 1
+                        yield SSEEvent(type="action", payload={
+                            "chart_spec": rd["chart_spec"],
+                            "chart_type": rd.get("chart_type", ""),
+                            "chart_id": rd.get("chart_id", ""),
+                            "title": rd.get("title", ""),
+                            "x_column": rd.get("x", ""),
+                            "y_columns": rd.get("y", []),
+                            "columns": state.columns,
+                            "row_count": state.row_count,
+                        })
+
+                    # LLM narrative — describe data, NOT chart type
+                    narrative = await self._narrate(ce_result, df, state, message, logger)
+                    if narrative and not _is_narrative_dup(narrative, prev_narrative):
+                        yield SSEEvent(type="narrative", payload={"content": narrative})
+                        prev_narrative = narrative
+                else:
+                    artifact.status = ArtifactStatus.FAILED
+                    yield SSEEvent(type="error", payload={"message": "图表生成失败"})
+
+                step.status = "done"
+                completed_steps.append(step)
+                continue
+
+            # ── non-chart_builder: LLM-driven path ──
+
+            # For annotation_engine: strip prev_narrative to avoid chart-type contamination
+            clean_prev = prev_narrative if step.tool != "annotation_engine" else ""
+            system_prompt = self._build_step_prompt(state, step, step_idx, plan, clean_prev)
 
             try:
                 llm_raw, tokens_in, tokens_out, latency_ms = await self._call_llm(
@@ -191,16 +309,30 @@ class AnalysisOrchestrator:
                 continue
 
             reply = parsed.get("reply", "") or parsed.get("narrative", "")
-            if reply and not _is_narrative_dup(reply, prev_narrative):
+            action = parsed.get("action")
+            import builtins as _bi
+            def _dl(msg):
+                try:
+                    with _bi.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log","a",encoding="utf-8") as f:
+                        f.write(msg+"\n")
+                except: pass
+
+            # For non-chart_builder steps: yield narrative immediately
+            is_chart_step = action and action.get("tool") == "chart_builder"
+            if not is_chart_step and reply and not _is_narrative_dup(reply, prev_narrative):
                 yield SSEEvent(type="narrative", payload={"content": reply})
                 prev_narrative = reply
 
-            action = parsed.get("action")
             if action and action.get("tool") and df is not None:
                 tool = action["tool"]
                 args = action.get("args", {})
                 tools_used.append(tool)
 
+                if reply and not _is_narrative_dup(reply, prev_narrative):
+                    yield SSEEvent(type="narrative", payload={"content": reply})
+                    prev_narrative = reply
+
+                _dl(f"[DIAG] final args to execute_one: type={args.get('type')}, x={args.get('x')}, y={args.get('y')}")
                 result = self.dispatcher.execute_one(
                     tool=tool, args=args, df=df, state=state,
                     theme=theme, chart_theme=chart_theme, style_template=style_template,
@@ -254,36 +386,28 @@ class AnalysisOrchestrator:
 
         chart_ctx = select_chart_type_with_context(state.columns, message)
         selected_chart = chart_ctx["chart_type"]
-        semantic_note = chart_ctx.get("feasibility_note", "")
 
-        chart_guidance = f"**图表类型已确定**: {selected_chart}"
-        if semantic_note == "index_as_time":
-            chart_guidance += (
-                "\n"
-                "  ⚠ 数据无时间列，将使用行索引作为横轴展示趋势。"
-                "请在 reply 中简短说明（如'按数据顺序展示趋势变化'），不要质疑图表类型。"
-            )
-
+        # chart_hint is system-generated — LLM must NOT output or discuss it
         system_prompt = (
             "你是数据分析计划生成器。根据用户问题和数据列信息，生成 1-3 步分析计划。\n\n"
             f"**数据列**:\n{columns_str}\n"
             f"**行数**: {len(df) if df is not None else 0}\n"
-            f"{chart_guidance}\n"
             f"{trace_summary}\n"
             "**可用工具**: chart_builder (图表), data_query (统计查询), annotation_engine (综合结论)\n\n"
             "输出严格的 JSON，包含 steps 数组：\n"
             "{\n"
             '  "steps": [\n'
-            f'    {{"id": "s1", "goal": "数据分析", "tool": "chart_builder", "chart_hint": "{selected_chart}"}},\n'
-            '    {{"id": "s2", "goal": "综合结论", "tool": "annotation_engine", "depends_on": ["s1"]}}\n'
+            '    {"id": "s1", "goal": "数据分析", "tool": "chart_builder"},\n'
+            '    {"id": "s2", "goal": "综合结论", "tool": "annotation_engine", "depends_on": ["s1"]}\n'
             "  ]\n"
             "}\n\n"
             "规则：\n"
             "- id 用 s1,s2,...；depends_on 引用前面的步骤\n"
-            f"- chart_hint 固定为 {selected_chart}，不要修改\n"
             "- goal 根据数据特征和用户问题填写（如：整体趋势、分类对比、分布分析）\n"
             "- 除非数据有明确的多维度需要分开展示，否则只规划 1 个 chart 步骤\n"
             "- 最后一步放 annotation_engine 做综合结论\n"
+            "- 不要推荐或讨论图表类型，图表类型由系统自动确定\n"
+            "- 不要在输出中包含 chart_hint 字段\n"
         )
 
         try:
@@ -310,7 +434,7 @@ class AnalysisOrchestrator:
                 goal=s.get("goal", f"步骤{i+1}"),
                 tool=s.get("tool", "data_query"),
                 depends_on=s.get("depends_on", []),
-                chart_hint=s.get("chart_hint", selected_chart),
+                chart_hint=selected_chart if s.get("tool") == "chart_builder" else "",
                 narrative_hint=s.get("narrative_hint", ""),
             ))
         return plan
@@ -346,14 +470,29 @@ class AnalysisOrchestrator:
             prompt += f"\n**上一步的回复（避免重复）**: {prev_narrative[:200]}\n"
 
         if step.chart_hint:
-            prompt += f"\n**图表类型**: {step.chart_hint}（使用此类型生成图表）\n"
+            prompt += f"\n**SYSTEM DECISION（不可质疑）**：图表类型已确定为 {step.chart_hint}。\n"
+            prompt += "你必须在 action.args.type 中写入此图表类型。\n"
+
+        # For annotation_engine: inject contract's final chart decision from artifact
+        if step.tool == "annotation_engine" and state.execution_artifacts:
+            last = state.execution_artifacts[-1]
+            if hasattr(last, 'to_prompt_context'):
+                ctx = last.to_prompt_context()
+                prompt += (
+                    f"\n**EXECUTION RESULT**: {json.dumps(ctx, ensure_ascii=False)}\n"
+                    "你的职责：基于以上图表描述数据发现。不要推荐或讨论图表类型。\n"
+                )
 
         prompt += (
             "\n请输出 JSON：\n"
             '{"reply": "一句话说明你在做什么", '
             f'"action": {{"tool": "{step.tool}", "args": {{...}}}}, '
             '"confidence": {{"score": 0.8}}'
-            "}\n"
+            "}\n\n"
+            "规则：\n"
+            "- 图表类型已由系统确定，不要推荐或讨论图表类型。你的职责是分析数据含义和描述发现。\n"
+            "- reply 只描述数据发现（如'身高与体重存在正相关'），不提及图表类型。\n"
+            "- action.args 必须包含 type（使用系统确定的图表类型）、x（列名）、y（列名列表）。\n"
         )
         return prompt
 
@@ -381,6 +520,55 @@ class AnalysisOrchestrator:
         summary = summarize_old_traces(traces)
         return f"**之前的分析概览**:\n{summary}\n" if summary else ""
 
+    # ── Narrative ─────────────────────────────────────────────
+
+    async def _narrate(
+        self, ce_result: dict, df, state, message: str, logger
+    ) -> str:
+        """Generate narrative from contract output. Contract is the sole authority.
+
+        Accepts the raw contract_entry dict directly — no intermediate mapping.
+        Handles approved, degraded, and rejected statuses.
+        LLM only describes data insights; never discusses chart type.
+        """
+        status = ce_result["status"]
+        chart_type = ce_result["chart_type"]
+        x_col = ce_result["x"]
+        y_cols = ce_result["y"]
+        explanation = ce_result.get("explanation", [])
+
+        if status == "degraded":
+            return f"（已调整——数据降级）原因: {'; '.join(explanation[:2])}"
+
+        if status == "rejected":
+            return ""
+
+        # Approved
+        col_desc = ", ".join(y_cols) if y_cols else "无"
+        prompt = (
+            f"图表类型已由系统确定为 {chart_type}。"
+            f"X 轴: {x_col}。Y 轴: {col_desc}。"
+            f"选择原因: {'; '.join(explanation[:2])}。"
+            f"数据共 {state.row_count} 行。\n\n"
+            "你的职责：描述数据中可能存在的规律或发现，1-2 句话。\n\n"
+            "规则：\n"
+            "- 不要推荐或讨论图表类型（已确定）\n"
+            "- 不要比较图表类型\n"
+            "- 不要质疑系统决策\n"
+            "- 不要泄露决策过程（如'系统选择了'、'基于规则'）\n"
+            "- 只描述数据含义\n"
+            f"- 用户原始问题: {message[:100]}\n"
+        )
+        try:
+            content, _, _, _ = await self._call_llm(prompt, "叙事", logger)
+            result = content.strip()[:300]
+            # Strip chart-type keywords to prevent contaminating prev_narrative
+            for kw in ["散点", "折线", "柱状", "饼图", "直方", "箱线", "趋势图", "scatter", "line chart", "bar chart"]:
+                result = result.replace(kw, "")
+            return result
+        except Exception:
+            return ""
+
     # ── Synthesis ─────────────────────────────────────────────
 
     async def _synthesize(
@@ -392,6 +580,7 @@ class AnalysisOrchestrator:
             "根据已执行的分析步骤，用1-2句话总结关键发现。直接给出结论，不要客套话。\n\n"
             f"用户问题: {message}\n"
             f"使用工具: {', '.join(tools_used)}\n"
+            "规则：不要推荐或讨论图表类型。只描述数据发现。\n"
         )
         try:
             content, _, _, _ = await self._call_llm(prompt, "总结发现", logger)

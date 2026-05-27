@@ -56,6 +56,24 @@ VALID_CHART_TYPES = {
 USE_FAKE_LLM = os.environ.get("FAKE_LLM", "0") == "1"
 
 
+import builtins
+def _dlog(msg):
+    try:
+        with builtins.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log", "a", encoding="utf-8") as f:
+            f.write(msg + "\n")
+            f.flush()
+    except Exception as e:
+        try:
+            with builtins.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug_err.log", "a", encoding="utf-8") as f:
+                f.write(f"DL_FAIL: {e}\n")
+        except:
+            pass
+
+class ContractViolationError(Exception):
+    """Raised when _handle_chart_builder receives invalid parameters."""
+    pass
+
+
 def _serialize_insights(clustered_list: list) -> list[dict]:
     """Serialize ClusteredInsight objects to JSON-safe dicts for SSE."""
     result = []
@@ -732,52 +750,45 @@ class ActionDispatcher:
     ) -> dict:
         """Build a chart via ChartBuilder."""
         chart_type = args.get("type", "bar")
+        import builtins as _bi3
+        try:
+            with _bi3.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log","a",encoding="utf-8") as f:
+                f.write(f"[DIAG] _handle_chart_builder ENTRY: type={chart_type}, x={args.get('x')}, y={args.get('y')}\n")
+        except: pass
         x_column = args.get("x", "")
         y_columns = args.get("y", [])
         title = args.get("title", f"{chart_type} 图表")
 
         # Validate chart type
         if chart_type not in VALID_CHART_TYPES:
-            chart_type = "bar"
+            raise ContractViolationError(
+                f"Invalid chart_type '{chart_type}'. Valid types: {sorted(VALID_CHART_TYPES)}"
+            )
 
-        # Auto-detect columns if not specified
-        if not x_column and len(df.columns) > 0:
-            # Scatter requires numeric X axis
-            if chart_type == "scatter":
-                for col_info in state.columns:
-                    dtype_cn = col_info.get("dtype_cn", "")
-                    if dtype_cn in ("数值", "整数分类"):
-                        x_column = col_info.get("name", "")
-                        break
-            if not x_column:
-                # Prefer first text/date column as X (for bar/line/pie etc.)
-                for col_info in state.columns:
-                    dtype_cn = col_info.get("dtype_cn", "")
-                    if dtype_cn in ("文本", "日期", "分类"):
-                        x_column = col_info.get("name", "")
-                        break
-            if not x_column:
-                x_column = df.columns[0]
-
-        if not y_columns and len(df.columns) > 1:
-            # Prefer numeric columns
-            for col_info in state.columns:
-                dtype_cn = col_info.get("dtype_cn", "")
-                if dtype_cn in ("数值", "整数分类"):
-                    name = col_info.get("name", "")
-                    if name and name != x_column:
-                        y_columns.append(name)
-                        if len(y_columns) >= 2:
-                            break
-            if not y_columns:
-                y_columns = [df.columns[1]] if len(df.columns) > 1 else [df.columns[0]]
-
-        # Ensure data types
+        # Validate x_column
+        if not x_column:
+            available = [c.get("name", str(c)) for c in state.columns] if state.columns else list(df.columns)
+            raise ContractViolationError(
+                f"x_column is required but not specified. Available columns: {available}"
+            )
         if x_column not in df.columns:
-            x_column = df.columns[0]
-        y_columns = [yc for yc in y_columns if yc in df.columns]
-        if not y_columns and len(df.columns) > 1:
-            y_columns = [df.columns[1]]
+            available = list(df.columns)
+            raise ContractViolationError(
+                f"x_column '{x_column}' not found in DataFrame. Available columns: {available}"
+            )
+
+        # Validate y_columns
+        if not y_columns:
+            available = [c for c in df.columns if c != x_column]
+            raise ContractViolationError(
+                f"y_columns is required but empty. Available columns (excluding x_column): {available}"
+            )
+        invalid_y = [yc for yc in y_columns if yc not in df.columns]
+        if invalid_y:
+            available = list(df.columns)
+            raise ContractViolationError(
+                f"y_columns {invalid_y} not found in DataFrame. Available columns: {available}"
+            )
 
         # Build chart
         builder = ChartBuilder()
@@ -1129,6 +1140,7 @@ class ChatService:
 
         # Route the query
         decision = self.router.route(message)
+        _dlog(f"[ROUTE] '{message[:60]}' → {decision.route}/{decision.execution_mode}")
 
         # Dispatch by execution_mode
         if decision.execution_mode == "single_reply":
@@ -1196,11 +1208,32 @@ class ChatService:
             if decision.entities.get("chart_type"):
                 chart_args["chart_type"] = decision.entities["chart_type"]
 
+            from services.execution_contract import contract_entry
+
+            inp = {
+                "args": {
+                    "type": chart_args.get("chart_type", "bar"),
+                    "x": chart_args.get("x_column", ""),
+                    "y": chart_args.get("y_columns", []),
+                    "title": chart_args.get("title", ""),
+                },
+                "df": df,
+                "columns": state.columns,
+                "message": message,
+                "policy": "strict",
+            }
+            ce_result = contract_entry(inp)
+
+            if ce_result["status"] == "rejected":
+                yield {"event": "error", "data": {"message": "图表生成被拒绝"}}
+                yield {"event": "done", "data": {"latency_ms": 0, "steps": 0}}
+                return
+
             args = {
-                "type": chart_args["chart_type"],
-                "x": chart_args["x_column"],
-                "y": chart_args["y_columns"],
-                "title": chart_args.get("title", ""),
+                "type": ce_result["chart_type"],
+                "x": ce_result["x"],
+                "y": ce_result["y"],
+                "title": ce_result["title"],
             }
 
             result = self.dispatcher.execute_one(
@@ -1444,6 +1477,11 @@ class ChatService:
             if action and action.get("tool") and df is not None and not df.empty:
                 tool = action.get("tool", "")
                 args = action.get("args", {})
+                # ── Normalize LLM output ──
+                if "y" in args and isinstance(args["y"], str):
+                    args["y"] = [args["y"]]
+                if "type" in args and args["type"] is None:
+                    args["type"] = "bar"
 
                 # Tool policy enforcement
                 if tool not in decision.tool_policy or not decision.tool_policy[tool].get("enabled", True):

@@ -1,0 +1,276 @@
+TASK: Add contract kernel code to execution_contract.py
+
+PROJECT: C:/Users/admin/Desktop/excel-chart-tool
+FILE TO EDIT: C:/Users/admin/Desktop/excel-chart-tool/services/execution_contract.py
+NEW FILE (already exists): C:/Users/admin/Desktop/excel-chart-tool/services/column_registry.py
+
+CRITICAL RULES:
+- Do NOT modify or delete any existing functions (validate_columns, decide_repair,
+  approve, validate_intent, validate_types, resolve_conflict, _build_degrade_plan, etc.)
+- 21 tests depend on them. Do NOT change their signatures. 
+- Only ADD new code below a "# == Contract Kernel v1.2 ==" separator at the BOTTOM.
+- Keep ALL existing imports, dataclasses, and functions completely untouched.
+
+== STEP 1: Add import at top of file ==
+After the existing imports (around line 20), add:
+from services.column_registry import build_column_registry, ColumnMeta
+
+== STEP 2: Add new dataclasses ==
+After the existing @dataclass section, add:
+
+@dataclass
+class ValidationFailure:
+    """Single validation failure with repair hint."""
+    stage: str = ""
+    field: str = ""
+    reason: str = ""
+    severity: str = "fatal"
+    suggestion: str = ""
+
+@dataclass
+class CandidateSet:
+    """Policy-filtered valid chart types."""
+    valid_charts: list[str] = field(default_factory=list)
+    exclusion_reasons: dict = field(default_factory=dict)
+
+== STEP 3: Add new functions at BOTTOM of file ==
+
+Add this separator comment and all functions below:
+
+# == Contract Kernel v1.2 ==
+
+def _validate_complete(args: dict, df: pd.DataFrame, registry: dict) -> tuple:
+    """Closed-form full-schema validation. Returns (failures, warnings)."""
+    failures = []
+    warnings = []
+    df_cols = list(df.columns)
+    
+    # x_column - required, must exist
+    x = args.get("x", "")
+    if not x:
+        failures.append(ValidationFailure(
+            stage="validate", field="x_column",
+            reason="x_column is required but not specified",
+            severity="fatal"))
+    elif x not in df_cols:
+        suggestion = _fuzzy_match(x, df_cols)
+        if suggestion:
+            failures.append(ValidationFailure(
+                stage="validate", field="x_column",
+                reason=f"x_column '{x}' not found; nearest: '{suggestion}'",
+                severity="repairable", suggestion=suggestion))
+        else:
+            failures.append(ValidationFailure(
+                stage="validate", field="x_column",
+                reason=f"x_column '{x}' not found in DataFrame",
+                severity="fatal"))
+    
+    # y_columns - required, each must exist
+    y = args.get("y", [])
+    if isinstance(y, str):
+        y = [y]
+    if not y:
+        failures.append(ValidationFailure(
+            stage="validate", field="y_columns",
+            reason="y_columns is required but empty",
+            severity="fatal"))
+    else:
+        for yc in y:
+            if yc not in df_cols:
+                suggestion = _fuzzy_match(yc, df_cols)
+                if suggestion:
+                    failures.append(ValidationFailure(
+                        stage="validate", field="y_columns",
+                        reason=f"y_column '{yc}' not found; nearest: '{suggestion}'",
+                        severity="repairable", suggestion=suggestion))
+                else:
+                    failures.append(ValidationFailure(
+                        stage="validate", field="y_columns",
+                        reason=f"y_column '{yc}' not found in DataFrame",
+                        severity="fatal"))
+    
+    # chart_type validity
+    ct = args.get("type", "bar")
+    if ct not in {"line", "bar", "scatter", "histogram", "pie", "boxplot"}:
+        failures.append(ValidationFailure(
+            stage="validate", field="chart_type",
+            reason=f"Invalid chart_type: {ct}",
+            severity="fatal"))
+    
+    # title - warn only
+    if not args.get("title"):
+        warnings.append("title is empty, will auto-generate")
+    
+    return failures, warnings
+
+
+def _build_candidates(registry: dict) -> CandidateSet:
+    """Policy hard-constraint filter."""
+    n_numeric = sum(1 for m in registry.values() if m.is_numeric)
+    has_cat = any(m.is_categorical for m in registry.values())
+    
+    POLICY = {
+        "line": n_numeric >= 1,
+        "bar": n_numeric >= 1,
+        "scatter": n_numeric >= 2,
+        "histogram": n_numeric >= 1,
+        "pie": has_cat and n_numeric == 1,
+        "boxplot": n_numeric >= 1,
+    }
+    valid = [ct for ct, ok in POLICY.items() if ok]
+    exclusion = {ct: "policy_constraint" for ct, ok in POLICY.items() if not ok}
+    return CandidateSet(valid_charts=valid, exclusion_reasons=exclusion)
+
+
+def _schema_rank(chart: str, registry: dict) -> int:
+    """Discrete schema fit: 0=perfect, 1=good, 2=ok, 3=poor."""
+    n_num = sum(1 for m in registry.values() if m.is_numeric)
+    has_t = any(m.is_temporal for m in registry.values())
+    has_c = any(m.is_categorical for m in registry.values())
+    
+    if chart == "line":
+        return 0 if (has_t and n_num >= 1) else (1 if n_num >= 1 else 3)
+    if chart == "bar":
+        return 0 if (has_c and n_num >= 1) else (1 if n_num >= 1 else 2)
+    if chart == "scatter":
+        return 0 if n_num >= 2 else 3
+    if chart == "pie":
+        return 0 if (has_c and n_num == 1) else (2 if (has_c and n_num > 1) else 3)
+    if chart == "histogram":
+        return 0 if n_num >= 3 else (1 if n_num >= 1 else 3)
+    if chart == "boxplot":
+        return 0 if n_num >= 2 else (1 if n_num >= 1 else 3)
+    return 2
+
+
+def _resolve(args: dict, candidates: CandidateSet, message: str, registry: dict) -> dict:
+    """Deterministic rank-based chart selection. NOT weighted scoring."""
+    INTENT_KW = {
+        "line": ["趋势", "变化", "增长", "下降", "走势", "折线", "曲线"],
+        "bar": ["对比", "比较", "排名", "差异", "柱状", "条形"],
+        "scatter": ["相关", "关联", "散点", "关系"],
+        "histogram": ["分布", "直方", "频率"],
+        "pie": ["占比", "比例", "份额", "饼图", "构成"],
+        "boxplot": ["异常", "离群", "箱线"],
+    }
+    primary = ""
+    for ct, kws in INTENT_KW.items():
+        if any(kw in message for kw in kws):
+            primary = ct
+            break
+    
+    DEFAULT_PRIORITY = {"bar": 0, "line": 1, "pie": 2, "scatter": 3, "histogram": 4, "boxplot": 5}
+    
+    def rank_key(chart):
+        intent_match = 0 if chart == primary else 1
+        schema_r = _schema_rank(chart, registry)
+        default_r = DEFAULT_PRIORITY.get(chart, 99)
+        return (intent_match, schema_r, default_r)
+    
+    ranked = sorted(candidates.valid_charts, key=rank_key)
+    return {
+        "chart_type": ranked[0],
+        "ranking": ranked,
+        "runner_up": ranked[1] if len(ranked) > 1 else None,
+    }
+
+
+def contract_entry(inp: dict) -> dict:
+    """Contract Gate - single mandatory entry point. 6-stage pipeline."""
+    import uuid
+    EXPECTED = {"chart_type", "x", "y", "title", "status", "trace_id", "narratives", "_locked"}
+    trace_id = uuid.uuid4().hex[:8]
+    
+    # Stage 1: Normalize
+    args = dict(inp.get("args", {}))
+    if "y" in args and isinstance(args["y"], str):
+        args["y"] = [args["y"]]
+    if args.get("type") is None:
+        args["type"] = "bar"
+    if "x" in args and isinstance(args["x"], str):
+        args["x"] = args["x"].strip()
+    
+    # Stage 2: Canonicalize
+    registry = build_column_registry(inp.get("columns", []))
+    ALIASES = {
+        "折线": "line", "曲线": "line", "柱状": "bar", "柱形": "bar",
+        "条形": "bar", "散点": "scatter", "气泡": "scatter",
+        "饼图": "pie", "环形": "pie", "直方": "histogram",
+        "箱线": "boxplot", "箱形": "boxplot",
+    }
+    args["type"] = ALIASES.get(args.get("type", "bar"), args.get("type", "bar"))
+    
+    # Stage 3: Validate
+    failures, warnings = _validate_complete(args, inp["df"], registry)
+    fatal = [f for f in failures if f.severity == "fatal"]
+    repairable = [f for f in failures if f.severity == "repairable"]
+    
+    if repairable and not fatal:
+        for f in repairable:
+            if f.field == "x_column" and f.suggestion:
+                args["x"] = f.suggestion
+            elif f.field == "y_columns" and f.suggestion:
+                args["y"] = [f.suggestion if y == f.field else y 
+                           for y in args.get("y", [])]
+        failures, warnings = _validate_complete(args, inp["df"], registry)
+        fatal = [f for f in failures if f.severity == "fatal"]
+    
+    if fatal:
+        policy = inp.get("policy", "exploratory")
+        if policy == "exploratory":
+            degrade = _build_degrade_plan(inp["df"], inp.get("columns", []))
+            result = {
+                "chart_type": degrade.get("fallback_chart_type", "bar"),
+                "x": degrade.get("x_column", ""),
+                "y": degrade.get("y_columns", []),
+                "title": degrade.get("title", "数据概览"),
+                "status": "degraded",
+                "trace_id": trace_id,
+                "narratives": ["（已调整——数据降级）"],
+                "_locked": True,
+            }
+            assert set(result.keys()) == EXPECTED
+            return result
+        else:
+            return {
+                "chart_type": "", "x": "", "y": [], "title": "",
+                "status": "rejected", "trace_id": trace_id,
+                "narratives": [], "_locked": True,
+            }
+    
+    # Stage 4: CandidateBuilder
+    candidates = _build_candidates(registry)
+    if not candidates.valid_charts:
+        return {
+            "chart_type": "bar", "x": args.get("x", ""),
+            "y": args.get("y", []), "title": args.get("title", "数据概览"),
+            "status": "degraded", "trace_id": trace_id,
+            "narratives": ["无可用的图表类型，已退回到柱状图"],
+            "_locked": True,
+        }
+    
+    # Stage 5: Resolve
+    resolution = _resolve(args, candidates, inp.get("message", ""), registry)
+    args["type"] = resolution["chart_type"]
+    
+    # Stage 6: Lock
+    narratives = []
+    original_type = inp.get("args", {}).get("type", "bar")
+    if original_type and original_type != args["type"]:
+        cn = {"line": "趋势图", "bar": "柱状图", "pie": "饼图",
+              "scatter": "散点图", "histogram": "直方图", "boxplot": "箱线图"}
+        cn_name = cn.get(args["type"], args["type"])
+        narratives.append(f"（已调整为{cn_name}——该图表更适合当前数据特征）")
+    
+    result = {
+        "chart_type": args["type"],
+        "x": args.get("x", ""),
+        "y": list(args.get("y", [])),
+        "title": args.get("title") or f"{args['type']} 图表",
+        "status": "approved",
+        "trace_id": trace_id,
+        "narratives": narratives,
+        "_locked": True,
+    }
+    assert set(result.keys()) == EXPECTED
+    return result

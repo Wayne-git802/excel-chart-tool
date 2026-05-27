@@ -183,11 +183,11 @@ class TestConversationRouterRoute:
 
     def test_route_confidence_direct_vis(self, router):
         decision = router.route("画个柱状图")
-        assert decision.confidence == 0.95
+        assert decision.confidence == 0.8  # dynamic: 0.5 + 2*0.15
 
     def test_route_confidence_analysis(self, router):
         decision = router.route("随便看看")
-        assert decision.confidence == 0.7
+        assert decision.confidence == 0.5  # score=0, no chart intent
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -731,6 +731,11 @@ class ChartBuilder:
         对于 pyecharts 渲染的图表类型：从 render_embed() 的 HTML 中提取 option JSON。
         对于 plotly 渲染的图表类型（heatmap/scatter_matrix）：返回占位 spec。
         """
+        import builtins as _bi4
+        try:
+            with _bi4.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log","a",encoding="utf-8") as f:
+                f.write(f"[DIAG] ChartBuilder.build_spec ENTRY: chart_type={chart_type}, x={x_column}, y={y_columns}\n")
+        except: pass
         if chart_type in ("heatmap", "scatter_matrix"):
             # plotly 图表暂时保留 HTML 模式
             html = self.build(df, chart_type, x_column, y_columns, title, theme,

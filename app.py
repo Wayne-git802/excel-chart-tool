@@ -257,6 +257,11 @@ async def chat_endpoint(request: Request):
     if _chat_service is None:
         from services.chat_service import ChatService
         _chat_service = ChatService(state_manager, chart_builder)
+        import builtins
+        try:
+            with builtins.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log","a",encoding="utf-8") as f:
+                f.write("[APP] ChatService initialized\n")
+        except: pass
 
     try:
         body = await request.json()

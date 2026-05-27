@@ -257,6 +257,63 @@ class UserPreferences:
 
 
 # ═══════════════════════════════════════════════════════════════
+# Execution Artifacts — structured execution facts (not narrative)
+# ═══════════════════════════════════════════════════════════════
+
+class ArtifactStatus(str, Enum):
+    APPROVED = "approved"
+    DEGRADED = "degraded"
+    REPAIRED = "repaired"
+    FAILED = "failed"
+
+
+@dataclass
+class ChartArtifact:
+    """Structured, replayable chart execution fact. LLM reads but never writes."""
+    step_id: str
+    chart_type: str
+    x_column: str
+    y_columns: list[str]
+    title: str
+    resolved_by: str = "contract_entry"
+    source_step: str = "chart_builder"
+    status: ArtifactStatus = ArtifactStatus.APPROVED
+
+    def to_prompt_context(self) -> dict:
+        """Minimal context for LLM — only what it needs to describe the chart."""
+        return {
+            "chart_type": self.chart_type,
+            "x_column": self.x_column,
+            "y_columns": self.y_columns,
+        }
+
+    def to_dict(self) -> dict:
+        return {
+            "step_id": self.step_id,
+            "chart_type": self.chart_type,
+            "x_column": self.x_column,
+            "y_column": self.y_columns,
+            "title": self.title,
+            "resolved_by": self.resolved_by,
+            "source_step": self.source_step,
+            "status": self.status.value,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ChartArtifact":
+        return cls(
+            step_id=d.get("step_id", ""),
+            chart_type=d.get("chart_type", "bar"),
+            x_column=d.get("x_column", ""),
+            y_columns=d.get("y_columns", d.get("y_column", [])),
+            title=d.get("title", ""),
+            resolved_by=d.get("resolved_by", "contract_entry"),
+            source_step=d.get("source_step", "chart_builder"),
+            status=ArtifactStatus(d.get("status", "approved")),
+        )
+
+
+# ═══════════════════════════════════════════════════════════════
 # AgentState — the top-level container
 # ═══════════════════════════════════════════════════════════════
 
@@ -318,8 +375,12 @@ class AgentState:
     confidence_scores: dict[str, float] = field(default_factory=dict)
     # {insight_id: score 0-1}
 
-    # ── Unified Analysis (cross-mode cognitive state) ──
+    # ── Unified Analysis (cross-mode cognitive state) — presentation only ──
     unified_analysis: list[dict] = field(default_factory=list)
+
+    # ── Execution Artifacts (system truth — structured, replayable) ──
+    execution_artifacts: list = field(default_factory=list)
+    # LLM must only READ artifacts, never WRITE them.
     # Schema per entry:
     # {
     #     "type": "insight" | "chart" | "hypothesis" | "fact",
@@ -351,6 +412,11 @@ class AgentState:
             "chart_type": chart_type,
             "ts": time.time(),
         })
+        self.touch()
+
+    def add_artifact(self, artifact) -> None:
+        """Record a structured execution fact. LLM reads, never writes."""
+        self.execution_artifacts.append(artifact)
         self.touch()
 
     # ── Plan helpers ──
@@ -507,6 +573,7 @@ class AgentState:
             "story_graph": self.story_graph.to_dict(),
             "confidence_scores": self.confidence_scores,
             "unified_analysis": self.unified_analysis,
+            "execution_artifacts": [a.to_dict() if hasattr(a, 'to_dict') else a for a in self.execution_artifacts],
             "user_preferences": self.user_preferences.to_dict(),
             "action_history": self.action_history,
         }
@@ -539,6 +606,8 @@ class AgentState:
             story_graph=AnalysisGraph.from_dict(d.get("story_graph", {})),
             confidence_scores=d.get("confidence_scores", {}),
             unified_analysis=d.get("unified_analysis", []),
+            execution_artifacts=[ChartArtifact.from_dict(a) if isinstance(a, dict) else a
+                                 for a in d.get("execution_artifacts", [])],
             user_preferences=UserPreferences.from_dict(d.get("user_preferences", {})),
             action_history=d.get("action_history", []),
         )
