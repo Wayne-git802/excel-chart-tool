@@ -87,7 +87,7 @@ class FilterContext:
 
     @classmethod
     def from_dict(cls, d: dict) -> "FilterContext":
-        return cls(
-            sticky_filter=None,  # caller must hydrate
-            one_shot_filter=None,
-        )
+        from core.ir.contract import FilterSpec
+        sticky = FilterSpec.from_dict(d["sticky_filter"]) if d.get("sticky_filter") else None
+        one_shot = FilterSpec.from_dict(d["one_shot_filter"]) if d.get("one_shot_filter") else None
+        return cls(sticky_filter=sticky, one_shot_filter=one_shot)

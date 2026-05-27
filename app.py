@@ -312,23 +312,22 @@ async def chat_endpoint(request: Request):
             except Exception:
                 pass
 
-        # ── v10: Load cached profile ──
+        # ── v10: Ensure profile is cached ──
         cache_key = f"{file_path}::{sheet_name}"
-        if cache_key in _profile_cache:
-            state.profile = _profile_cache[cache_key]
-        else:
-            # Profile not yet cached — compute now
+        if cache_key not in _profile_cache:
             try:
                 from core.profiling.profiler import DataProfiler
                 df_temp = _read_df(file_path, sheet_name)
                 analysis = build_analysis(df_temp)
-                prof = DataProfiler.enhance(analysis["columns"], df_temp)
-                _profile_cache[cache_key] = prof
-                state.profile = prof
+                _profile_cache[cache_key] = DataProfiler.enhance(analysis["columns"], df_temp)
             except Exception:
                 pass
 
         state_manager.save_state(state)
+
+    # ── v10: Get profile from cache (NOT from state) ──
+    cache_key = f"{file_path}::{sheet_name}"
+    profile = _profile_cache.get(cache_key) if file_path else None
 
     # Get df from cache
     df = None

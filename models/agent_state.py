@@ -336,7 +336,6 @@ class AgentState:
     sheet_name: str = ""
     columns: list[dict] = field(default_factory=list)   # [{name, dtype, dtype_cn, stats}]
     row_count: int = 0
-    profile: Any = None  # v10: DatasetProfile (set after analyze)
     ledger: Any = None  # v10: DecisionLedger (set after contract resolve)
     filter_context: Any = None  # v10: FilterContext (session-level filter state)
 
@@ -581,6 +580,9 @@ class AgentState:
             "execution_artifacts": [a.to_dict() if hasattr(a, 'to_dict') else a for a in self.execution_artifacts],
             "user_preferences": self.user_preferences.to_dict(),
             "action_history": self.action_history,
+            # v10
+            "ledger": self.ledger.to_dict() if self.ledger else None,
+            "filter_context": self.filter_context.to_dict() if self.filter_context else None,
         }
 
     @classmethod
@@ -615,6 +617,11 @@ class AgentState:
                                  for a in d.get("execution_artifacts", [])],
             user_preferences=UserPreferences.from_dict(d.get("user_preferences", {})),
             action_history=d.get("action_history", []),
+            # v10
+            ledger=(__import__("core.ir.session", fromlist=["DecisionLedger"]).DecisionLedger.from_dict(d["ledger"])
+                    if d.get("ledger") else None),
+            filter_context=(__import__("core.ir.session", fromlist=["FilterContext"]).FilterContext.from_dict(d["filter_context"])
+                           if d.get("filter_context") else None),
         )
 
 
