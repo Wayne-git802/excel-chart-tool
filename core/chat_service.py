@@ -1190,6 +1190,9 @@ class ChatService:
                             return
                         fctx.apply_new(fs)
                         state.filter_context = fctx
+                        # Confirm filter was applied
+                        desc = ", ".join(f"{c.column}{c.operator}{c.value}" for c in fs.conditions)
+                        yield {"event": "narrative", "data": {"content": f"已筛选：{desc}"}}
 
                     active_fs = fctx.active_filter()
                     if active_fs and not active_fs.is_empty():
