@@ -317,6 +317,7 @@ class ChartBuilder:
             xaxis_opts=self._xaxis(x_col, dark),
             yaxis_opts=self._yaxis(left_cols[0] if left_cols else "", dark),
         )
+        chart.options["barCategoryGap"] = "60%"
         return chart.render_embed()
 
     def _make_dual_axis_line(self, df, x_col, y_cols, td, dark, **kwargs):
@@ -410,6 +411,7 @@ class ChartBuilder:
             xaxis_opts=self._xaxis(x_col, dark),
             yaxis_opts=self._yaxis(y_cols[0] if y_cols else "", dark),
         )
+        bar.options["barCategoryGap"] = "60%"  # prevent bars from spanning full width on small datasets
         return bar.render_embed()
 
     def _line(self, df, x_col, y_cols, title, td, dark, **kwargs):
@@ -505,6 +507,7 @@ class ChartBuilder:
             xaxis_opts=self._xaxis(x_col, dark),
             yaxis_opts=self._yaxis("", dark),
         )
+        bar.options["barCategoryGap"] = "60%"
         return bar.render_embed()
 
     def _grouped_bar(self, df, x_col, y_cols, title, td, dark, **kwargs):
@@ -531,6 +534,7 @@ class ChartBuilder:
             xaxis_opts=self._xaxis(x_col, dark),
             yaxis_opts=self._yaxis("", dark),
         )
+        bar.options["barCategoryGap"] = "60%"
         return bar.render_embed()
 
     # ==================== 分布图表 ====================
