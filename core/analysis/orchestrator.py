@@ -422,7 +422,7 @@ class AnalysisOrchestrator:
             "规则：\n"
             "- id 用 s1,s2,...；depends_on 引用前面的步骤\n"
             "- goal 根据数据特征和用户问题填写（如：整体趋势、分类对比、分布分析）\n"
-            "- 除非数据有明确的多维度需要分开展示，否则只规划 1 个 chart 步骤\n"
+            "- 每个分析计划必须包含至少 1 个 chart_builder 步骤用于可视化。多维度时可规划 2 个 chart\n"
             "- 最后一步放 annotation_engine 做综合结论\n"
             "- 不要推荐或讨论图表类型，图表类型由系统自动确定\n"
             "- 不要在输出中包含 chart_hint 字段\n"
