@@ -336,6 +336,7 @@ class AgentState:
     sheet_name: str = ""
     columns: list[dict] = field(default_factory=list)   # [{name, dtype, dtype_cn, stats}]
     row_count: int = 0
+    profile: Any = None  # v10: DatasetProfile (set after analyze)
 
     # ── Plan Progress (v3 Plan-then-Execute) ──
     analysis_plan: list[dict] = field(default_factory=list)

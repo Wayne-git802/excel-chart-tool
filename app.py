@@ -33,6 +33,9 @@ templates.env.auto_reload = True
 _cache: dict = {}
 _CACHE_TTL_SECONDS = 3600  # 1 hour
 
+# In-memory profile cache: "file_path::sheet" -> DatasetProfile
+_profile_cache: dict = {}
+
 
 def _cache_get(key: str) -> pd.DataFrame | None:
     entry = _cache.get(key)
@@ -124,7 +127,7 @@ async def upload(file: UploadFile = File(...)):
 
 @app.post("/api/analyze")
 async def analyze(file_path: str = Form(...), sheet_name: str = Form(...)):
-    """Read sheet and return analysis."""
+    """Read sheet and return analysis + profile."""
     try:
         if not os.path.exists(file_path):
             return JSONResponse({"error": "File not found"}, status_code=400)
@@ -134,6 +137,11 @@ async def analyze(file_path: str = Form(...), sheet_name: str = Form(...)):
         preview = build_preview(df)
         issues = detect_header_issues(df)
 
+        # ── v10: Profile the dataset ──
+        from core.profiling.profiler import DataProfiler
+        profile = DataProfiler.enhance(analysis["columns"], df)
+        _profile_cache[f"{file_path}::{sheet_name}"] = profile
+
         return JSONResponse({
             "columns": analysis["columns"],
             "row_count": analysis["row_count"],
@@ -141,6 +149,7 @@ async def analyze(file_path: str = Form(...), sheet_name: str = Form(...)):
             "preview": preview,
             "top_correlations": analysis["top_correlations"],
             "header_issues": issues,
+            "profile": profile.to_dict(),  # v10
         })
     except Exception as e:
         import traceback
@@ -302,6 +311,23 @@ async def chat_endpoint(request: Request):
                 state.row_count = len(df_temp)
             except Exception:
                 pass
+
+        # ── v10: Load cached profile ──
+        cache_key = f"{file_path}::{sheet_name}"
+        if cache_key in _profile_cache:
+            state.profile = _profile_cache[cache_key]
+        else:
+            # Profile not yet cached — compute now
+            try:
+                from core.profiling.profiler import DataProfiler
+                df_temp = _read_df(file_path, sheet_name)
+                analysis = build_analysis(df_temp)
+                prof = DataProfiler.enhance(analysis["columns"], df_temp)
+                _profile_cache[cache_key] = prof
+                state.profile = prof
+            except Exception:
+                pass
+
         state_manager.save_state(state)
 
     # Get df from cache
