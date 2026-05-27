@@ -314,7 +314,7 @@ class ChartBuilder:
             title_opts=self._title(chart_title, td["title_color"]),
             tooltip_opts=self._tooltip(dark),
             legend_opts=self._legend(dark),
-            xaxis_opts=self._xaxis("", dark),
+            xaxis_opts=self._xaxis(x_col, dark),
             yaxis_opts=self._yaxis(left_cols[0] if left_cols else "", dark),
         )
         return chart.render_embed()
@@ -358,7 +358,7 @@ class ChartBuilder:
             title_opts=self._title(chart_title, td["title_color"]),
             tooltip_opts=self._tooltip(dark),
             legend_opts=self._legend(dark),
-            xaxis_opts=self._xaxis("", dark),
+            xaxis_opts=self._xaxis(x_col, dark),
             yaxis_opts=self._yaxis(left_cols[0] if left_cols else "", dark),
         )
         return chart.render_embed()
@@ -407,7 +407,7 @@ class ChartBuilder:
             title_opts=self._title(title or f"柱状图 - {x_col}", td["title_color"]),
             tooltip_opts=self._tooltip(dark),
             legend_opts=self._legend(dark),
-            xaxis_opts=self._xaxis("", dark),
+            xaxis_opts=self._xaxis(x_col, dark),
             yaxis_opts=self._yaxis(y_cols[0] if y_cols else "", dark),
         )
         return bar.render_embed()
@@ -434,7 +434,7 @@ class ChartBuilder:
             title_opts=self._title(title or f"折线图 - {x_col}", td["title_color"]),
             tooltip_opts=self._tooltip(dark),
             legend_opts=self._legend(dark),
-            xaxis_opts=self._xaxis("", dark),
+            xaxis_opts=self._xaxis(x_col, dark),
             yaxis_opts=self._yaxis(y_cols[0] if y_cols else "", dark),
         )
         return line.render_embed()
@@ -502,7 +502,7 @@ class ChartBuilder:
             title_opts=self._title(title or "堆叠柱状图", td["title_color"]),
             tooltip_opts=self._tooltip(dark),
             legend_opts=self._legend(dark),
-            xaxis_opts=self._xaxis("", dark),
+            xaxis_opts=self._xaxis(x_col, dark),
             yaxis_opts=self._yaxis("", dark),
         )
         return bar.render_embed()
@@ -528,7 +528,7 @@ class ChartBuilder:
             title_opts=self._title(title or "分组柱状图", td["title_color"]),
             tooltip_opts=self._tooltip(dark),
             legend_opts=self._legend(dark),
-            xaxis_opts=self._xaxis("", dark),
+            xaxis_opts=self._xaxis(x_col, dark),
             yaxis_opts=self._yaxis("", dark),
         )
         return bar.render_embed()
@@ -546,7 +546,7 @@ class ChartBuilder:
         bp.set_global_opts(
             title_opts=self._title(title or "箱线图", td["title_color"]),
             tooltip_opts=opts.TooltipOpts(trigger="item"),
-            xaxis_opts=self._xaxis("", dark),
+            xaxis_opts=self._xaxis(x_col, dark),
             yaxis_opts=self._yaxis("", dark),
         )
         return bp.render_embed()
@@ -678,7 +678,7 @@ class ChartBuilder:
             title_opts=self._title(title or f"面积图 - {x_col}", td["title_color"]),
             tooltip_opts=self._tooltip(dark),
             legend_opts=self._legend(dark),
-            xaxis_opts=self._xaxis("", dark),
+            xaxis_opts=self._xaxis(x_col, dark),
             yaxis_opts=self._yaxis("", dark),
         )
         return line.render_embed()
