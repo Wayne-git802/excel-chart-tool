@@ -482,6 +482,31 @@ async def export_chart(
 </head><body>{chart_html}</body></html>""")
     return JSONResponse({"url": f"/exports/chart_{export_id}.html", "format": "html"})
 
+
+# ─── v10 Debug ─────────────────────────────────────────────
+
+@app.get("/api/debug/ledger")
+async def debug_ledger(session_id: str = ""):
+    """Return decision ledger for a session."""
+    if not session_id:
+        return JSONResponse({"error": "session_id required"}, status_code=400)
+    state = state_manager.load_state(session_id)
+    if not state or not hasattr(state, "ledger") or state.ledger is None:
+        return JSONResponse({"error": "no ledger found for session"}, status_code=404)
+    return JSONResponse(state.ledger.to_dict())
+
+
+@app.get("/api/debug/profile")
+async def debug_profile(session_id: str = ""):
+    """Return dataset profile for a session."""
+    if not session_id:
+        return JSONResponse({"error": "session_id required"}, status_code=400)
+    state = state_manager.load_state(session_id)
+    if not state or state.profile is None:
+        return JSONResponse({"error": "no profile found for session"}, status_code=404)
+    return JSONResponse(state.profile.to_dict())
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8800)

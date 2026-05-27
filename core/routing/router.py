@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class RouteDecision:
-    route: str              # greeting | direct_visualization | data_quality | analysis
+    route: str              # greeting | direct_visualization | data_quality | analysis | fact_query | clear_filter
     execution_mode: str     # "single_reply" | "direct_tool" | "react"
     confidence: float       # 0.0-1.0
     entities: dict          # {chart_type, x_column, y_columns, aggregation, ...}
@@ -22,6 +22,10 @@ TOOL_POLICY = {
     "data_quality": {
         "data_query": {"enabled": True, "max_calls": 1, "allow_fallback": False},
     },
+    "fact_query": {
+        "data_query": {"enabled": True, "max_calls": 1, "allow_fallback": False},
+    },
+    "clear_filter": {},
     "analysis": {
         "data_query":       {"enabled": True, "max_calls": 3, "allow_fallback": True},
         "chart_builder":    {"enabled": True, "max_calls": 3, "allow_fallback": True},
@@ -37,6 +41,8 @@ ROUTE_MODE = {
     "greeting":                "single_reply",
     "direct_visualization":    "direct_tool",
     "data_quality":            "direct_tool",
+    "fact_query":              "single_reply",
+    "clear_filter":            "single_reply",
     "analysis":                "react",
 }
 
@@ -111,6 +117,23 @@ _DATA_QUALITY_KW = [
 ]
 
 
+_CLEAR_FILTER_KW = ["算了", "看全部", "清除", "清空", "清除筛选", "取消筛选", "不看筛选", "全部数据"]
+
+_FACT_QUERY_KW = [
+    "几行", "多少行", "多少条", "有几个", "多少列", "几列",
+    "最高", "最低", "最大值", "最小值", "均值", "平均", "中位数",
+    "总和", "总计", "一共",
+]
+
+
+def _match_clear_filter(message: str) -> bool:
+    return any(kw in message for kw in _CLEAR_FILTER_KW)
+
+
+def _match_fact_query(message: str) -> bool:
+    return any(kw in message for kw in _FACT_QUERY_KW)
+
+
 def _match_greeting(message: str) -> bool:
     msg_lower = message.lower()
     return any(kw in msg_lower for kw in _GREETING_KW)
@@ -151,6 +174,14 @@ class ConversationRouter:
 
     def route(self, message: str) -> RouteDecision:
         """Determine intent and execution policy for a user message."""
+        # Step 0: clear filter
+        if _match_clear_filter(message):
+            return self._build_decision("clear_filter", 1.0, message)
+
+        # Step 0.5: fact query (shortcut — no chart needed)
+        if _match_fact_query(message):
+            return self._build_decision("fact_query", 0.95, message)
+
         # Step 1: greeting
         if _match_greeting(message):
             return self._build_decision("greeting", 1.0, message)
