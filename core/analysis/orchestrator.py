@@ -265,7 +265,9 @@ class AnalysisOrchestrator:
                         prev_narrative = n
 
                 if ce_result["status"] == "rejected":
-                    yield SSEEvent(type="error", payload={"message": "图表生成被拒绝"})
+                    reason = ledger.steps[-1].rule_applied if ledger.steps else "无法确定图表类型"
+                    advice = "数据中缺少数值列或分类列。请上传包含数值/日期/分类字段的数据。"
+                    yield SSEEvent(type="error", payload={"message": f"{reason}。{advice}"})
                     step.status = "failed"
                     continue
 
