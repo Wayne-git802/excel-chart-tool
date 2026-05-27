@@ -33,7 +33,7 @@ def sample_df():
 @pytest.fixture
 def chart_builder():
     """Return a ChartBuilder instance."""
-    from services.chart_builder import ChartBuilder
+    from core.chart.builder import ChartBuilder
     return ChartBuilder()
 
 

@@ -1,6 +1,7 @@
 """图表生成服务 - pyecharts 为主，plotly 补统计图
 支持 Light/Dark 主题切换 + 6+2 套配色 + 视觉美化"""
 import os
+_DL = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "logs", "debug.log")
 import json
 import re
 import pandas as pd
@@ -733,7 +734,7 @@ class ChartBuilder:
         """
         import builtins as _bi4
         try:
-            with _bi4.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log","a",encoding="utf-8") as f:
+            with _bi4.open(_DL,"a",encoding="utf-8") as f:
                 f.write(f"[DIAG] ChartBuilder.build_spec ENTRY: chart_type={chart_type}, x={x_column}, y={y_columns}\n")
         except: pass
         if chart_type in ("heatmap", "scatter_matrix"):

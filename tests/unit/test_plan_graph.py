@@ -1,7 +1,7 @@
 """Tests for validate_plan_graph."""
 
 import pytest
-from services.plan_validator import validate_plan_graph
+from core.planning.validator import validate_plan_graph
 
 
 def _dict_steps(*steps: dict) -> list[dict]:

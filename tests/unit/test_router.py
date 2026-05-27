@@ -3,9 +3,9 @@ import sys
 sys.path.insert(0, r"C:\Users\admin\Desktop\excel-chart-tool")
 
 import pytest
-from services.router import RouteDecision, ConversationRouter
-from services.router.mini_chart_planner import plan_chart
-from services.router.conversation_router import TOOL_POLICY, ROUTE_MODE
+from core.routing import RouteDecision, ConversationRouter
+from core.routing.planner import plan_chart
+from core.routing.router import TOOL_POLICY, ROUTE_MODE
 
 
 @pytest.fixture

@@ -2,7 +2,7 @@
 
 import pytest
 import pandas as pd
-from services.column_registry import build_column_registry, ColumnMeta
+from core.contract.registry import build_column_registry, ColumnMeta
 
 
 class TestBuildColumnRegistry:
@@ -31,9 +31,9 @@ class TestBuildColumnRegistry:
         ]
         r = build_column_registry(cols)
 
-        assert r["身高（cm）"].is_numeric, "int64 should be numeric regardless of dtype_cn"
-        assert r["体重（kg）"].is_numeric
-        assert r["身高（cm）"].is_categorical  # dtype_cn puts it in category too
+        assert r["身高(cm)"].is_numeric, "int64 should be numeric regardless of dtype_cn"
+        assert r["体重(kg)"].is_numeric
+        assert r["身高(cm)"].is_categorical  # dtype_cn puts it in category too
 
     def test_temporal_detection(self):
         """datetime64 and time-pattern names."""

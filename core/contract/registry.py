@@ -6,7 +6,7 @@ MUST query ColumnMeta from the registry. Direct access to dtype/dtype_cn is
 forbidden outside this module.
 
 Usage:
-    from services.column_registry import build_column_registry
+    from core.contract.registry import build_column_registry
 
     registry = build_column_registry(state.columns)
     if registry["sales"].is_numeric:

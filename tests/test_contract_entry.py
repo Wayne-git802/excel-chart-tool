@@ -2,7 +2,7 @@
 
 import pytest
 import pandas as pd
-from services.execution_contract import (
+from core.contract.contract import (
     contract_entry,
     _validate_complete,
     _build_candidates,
@@ -11,7 +11,7 @@ from services.execution_contract import (
     ValidationFailure,
     CandidateSet,
 )
-from services.column_registry import build_column_registry
+from core.contract.registry import build_column_registry
 
 
 # ── Fixtures ──────────────────────────────────────────────

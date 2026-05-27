@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import math
 
-from services.analyzer import _column_info, build_analysis, build_preview
+from core.analysis.analyzer import _column_info, build_analysis, build_preview
 
 
 class TestColumnInfo:

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 import re
 import time
 import traceback
@@ -34,11 +35,11 @@ import aiohttp
 import pandas as pd
 
 from models.agent_state import AgentState, ThinkingTrace, ConfidenceLevel, AnalysisNode, NodeType, PlanStep
-from services.logger import SessionLogger
-from services.chart_builder import ChartBuilder
-from services.state_manager import StateManager
-from services.router import ConversationRouter
-from services.router.mini_chart_planner import plan_chart
+from state.logger import SessionLogger
+from core.chart.builder import ChartBuilder
+from state.manager import StateManager
+from core.routing import ConversationRouter
+from core.routing.planner import plan_chart
 
 # ═══════════════════════════════════════════════════════════════
 # Constants
@@ -59,12 +60,12 @@ USE_FAKE_LLM = os.environ.get("FAKE_LLM", "0") == "1"
 import builtins
 def _dlog(msg):
     try:
-        with builtins.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log", "a", encoding="utf-8") as f:
+        with builtins.open(os.path.join(_PROJECT_ROOT, "logs", debug.log", "a", encoding="utf-8") as f:
             f.write(msg + "\n")
             f.flush()
     except Exception as e:
         try:
-            with builtins.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug_err.log", "a", encoding="utf-8") as f:
+            with builtins.open(os.path.join(_PROJECT_ROOT, "logs", debug_err.log", "a", encoding="utf-8") as f:
                 f.write(f"DL_FAIL: {e}\n")
         except:
             pass
@@ -599,7 +600,7 @@ class ActionDispatcher:
         message: str = "",
     ):
         """Same as execute_one but returns ToolResult. Forward-compat for new code."""
-        from services.tool_result import normalize_tool_result
+        from core.tool_result import normalize_tool_result
         raw = self.execute_one(tool, args, df, state, theme, chart_theme, style_template, message)
         return normalize_tool_result(raw, tool)
 
@@ -752,7 +753,7 @@ class ActionDispatcher:
         chart_type = args.get("type", "bar")
         import builtins as _bi3
         try:
-            with _bi3.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log","a",encoding="utf-8") as f:
+            with _bi3.open(os.path.join(_PROJECT_ROOT, "logs", debug.log","a",encoding="utf-8") as f:
                 f.write(f"[DIAG] _handle_chart_builder ENTRY: type={chart_type}, x={args.get('x')}, y={args.get('y')}\n")
         except: pass
         x_column = args.get("x", "")
@@ -1152,8 +1153,8 @@ class ChatService:
             ):
                 yield event
         else:  # react (analysis) — delegated to AnalysisOrchestrator
-            from services.analysis_orchestrator import AnalysisOrchestrator
-            from services.tool_result import SSEEvent as Evt
+            from core.analysis.orchestrator import AnalysisOrchestrator
+            from core.tool_result import SSEEvent as Evt
             orchestrator = AnalysisOrchestrator(self.dispatcher, self.api_key, self.model)
             async for evt in orchestrator.run(
                 message=message,
@@ -1208,7 +1209,7 @@ class ChatService:
             if decision.entities.get("chart_type"):
                 chart_args["chart_type"] = decision.entities["chart_type"]
 
-            from services.execution_contract import contract_entry
+            from core.contract.contract import contract_entry
 
             inp = {
                 "args": {
@@ -1307,7 +1308,7 @@ class ChatService:
         should_run_engine = (df is not None and not df.empty and any(kw in message for kw in exploration_keywords))
         if should_run_engine:
             try:
-                from services.insight_engine import InsightEngine
+                from core.analysis.insight_engine import InsightEngine
                 engine = InsightEngine()
                 result = engine.run(df, context={"source": "chat"})
                 top = result.get("top_insights", [])
@@ -1413,7 +1414,7 @@ class ChatService:
 
                 # ── Phase 3: Convert to PlanStep objects & validate ──
                 try:
-                    from services.plan_validator import validate_plan
+                    from core.planning.validator import validate_plan
                     plan_steps = []
                     for i, ps in enumerate(analysis_plan):
                         plan_steps.append(PlanStep(

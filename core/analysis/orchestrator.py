@@ -1,3 +1,5 @@
+import os
+_DEBUG_LOG = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "logs", "debug.log")
 """Analysis Orchestrator — plan → execute → trace → synthesize.
 
 Orchestrates the full analysis pipeline: InputGate → Plan → Execute → Synthesize.
@@ -14,13 +16,13 @@ from models.agent_state import (
     AgentState, ThinkingTrace, ConfidenceLevel,
     AnalysisNode, NodeType, PlanStep
 )
-from services.tool_result import SSEEvent
-from services.logger import SessionLogger
-from services.input_gate import InputGate
-from services.plan_pruner import PlanPruner
-from services.budget_controller import BudgetController
-from services.execution_guard import ExecutionGuard
-from services.chart_selector import select_chart_type_with_context, select_chart_type
+from core.tool_result import SSEEvent
+from state.logger import SessionLogger
+from core.routing.gate import InputGate
+from core.planning.pruner import PlanPruner
+from core.planning.budget import BudgetController
+from core.contract.guard import ExecutionGuard
+from core.chart.selector import select_chart_type_with_context, select_chart_type
 
 API_URL = "https://api.deepseek.com/chat/completions"
 DEFAULT_MODEL = "deepseek-chat"
@@ -100,11 +102,11 @@ def summarize_old_traces(traces: list[dict], max_chars: int = 300) -> str:
 
 import builtins as _bi2
 try:
-    with _bi2.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log","a",encoding="utf-8") as f:
+    with _bi2.open(_DEBUG_LOG,"a",encoding="utf-8") as f:
         f.write("[ORCH_IMPORT] analysis_orchestrator loaded v2\n")
 except: pass
 # DEBUG: force a deliberate side effect
-_bi2.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log","a",encoding="utf-8").write("[ORCH_MODULE] module loaded at top level\n")
+_bi2.open(_DEBUG_LOG,"a",encoding="utf-8").write("[ORCH_MODULE] module loaded at top level\n")
 
 class AnalysisOrchestrator:
     """Plan → Execute → Trace → Synthesize. Yields SSEEvent objects."""
@@ -128,7 +130,7 @@ class AnalysisOrchestrator:
     ) -> AsyncGenerator[SSEEvent, None]:
         _dl2 = _bi2
         try:
-            with _dl2.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log","a",encoding="utf-8") as f:
+            with _dl2.open(_DEBUG_LOG,"a",encoding="utf-8") as f:
                 f.write(f"[ORCH_RUN] message={message[:50]}\n")
         except: pass
         logger = SessionLogger(session_id)
@@ -200,8 +202,8 @@ class AnalysisOrchestrator:
 
             # ── chart_builder: deterministic path (no LLM for args) ──
             if step.tool == "chart_builder" and df is not None:
-                from services.execution_contract import contract_entry, select_columns
-                from services.column_registry import build_column_registry
+                from core.contract.contract import contract_entry, select_columns
+                from core.contract.registry import build_column_registry
 
                 registry = build_column_registry(state.columns)
                 cols = select_columns(df, registry)
@@ -313,7 +315,7 @@ class AnalysisOrchestrator:
             import builtins as _bi
             def _dl(msg):
                 try:
-                    with _bi.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log","a",encoding="utf-8") as f:
+                    with _bi.open(_DEBUG_LOG,"a",encoding="utf-8") as f:
                         f.write(msg+"\n")
                 except: pass
 

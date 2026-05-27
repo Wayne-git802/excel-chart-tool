@@ -7,7 +7,7 @@ Key behavioral contract:
 """
 
 import pytest
-from services.chart_selector import select_chart_type
+from core.chart.selector import select_chart_type
 
 
 # ── Helpers ──────────────────────────────────────────────────

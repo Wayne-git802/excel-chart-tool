@@ -17,7 +17,7 @@ if PROJECT_ROOT not in sys.path:
 import pytest
 import pandas as pd
 
-from services.execution_contract import (
+from core.contract.contract import (
     ExecutionContract,
     ContractFailure,
     ValidationResult,

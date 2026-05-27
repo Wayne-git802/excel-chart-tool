@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
-from services.column_registry import build_column_registry, ColumnMeta
+from core.contract.registry import build_column_registry, ColumnMeta
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -896,7 +896,7 @@ def select_columns(
         {"x": str, "y": list[str], "_meta": {"fallback_tier": int, "reason": str}}
     """
     import pandas as pd
-    from services.column_registry import canonicalize_name
+    from core.contract.registry import canonicalize_name
 
     df_cols = list(df.columns)
     # Map canonical → original for registry lookup

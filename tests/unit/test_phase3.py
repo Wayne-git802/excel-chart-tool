@@ -177,7 +177,7 @@ class TestValidatePlanGraph:
     """Tests for plan graph validation."""
 
     def test_valid_plan_no_errors(self):
-        from services.plan_validator import validate_plan_graph
+        from core.planning.validator import validate_plan_graph
         plan = [
             PlanStep(id="s1", goal="概览", tool="data_query", depends_on=[]),
             PlanStep(id="s2", goal="趋势", tool="chart_builder", chart_hint="line", depends_on=["s1"]),
@@ -186,13 +186,13 @@ class TestValidatePlanGraph:
         assert errors == []
 
     def test_empty_plan(self):
-        from services.plan_validator import validate_plan_graph
+        from core.planning.validator import validate_plan_graph
         errors = validate_plan_graph([])
         assert len(errors) == 1
         assert "empty" in errors[0].lower()
 
     def test_duplicate_ids_detected(self):
-        from services.plan_validator import validate_plan_graph
+        from core.planning.validator import validate_plan_graph
         plan = [
             PlanStep(id="s1", goal="a", tool="data_query"),
             PlanStep(id="s1", goal="b", tool="chart_builder"),

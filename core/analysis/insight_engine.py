@@ -10,14 +10,14 @@ from typing import Optional
 import pandas as pd
 
 from models.insight import Insight, ClusteredInsight
-from services.significance_gate import SignificanceGate
-from services.insight_cluster import InsightCluster
+from core.planning.significance import SignificanceGate
+from core.analysis.insight_cluster import InsightCluster
 
-from services.detectors.trend import TrendDetector
-from services.detectors.outlier import OutlierDetector
-from services.detectors.correlation import CorrDetector
-from services.detectors.distribution import DistAnalyzer
-from services.detectors.seasonal import SeasonDetector
+from core.detectors.trend import TrendDetector
+from core.detectors.outlier import OutlierDetector
+from core.detectors.correlation import CorrDetector
+from core.detectors.distribution import DistAnalyzer
+from core.detectors.seasonal import SeasonDetector
 
 logger = logging.getLogger(__name__)
 

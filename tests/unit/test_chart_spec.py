@@ -3,7 +3,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from services.chart_builder import ChartBuilder
+from core.chart.builder import ChartBuilder
 
 
 class TestBuildSpec:

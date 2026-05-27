@@ -10,11 +10,11 @@ import json
 import time
 import pandas as pd
 
-from services.excel_reader import load_sheet, get_sheets, detect_header_issues
-from services.analyzer import build_analysis, build_preview
-from services.chart_builder import ChartBuilder
-from services.state_manager import StateManager
-from services.logger import schedule_cleanup
+from files.reader import load_sheet, get_sheets, detect_header_issues
+from core.analysis.analyzer import build_analysis, build_preview
+from core.chart.builder import ChartBuilder
+from state.manager import StateManager
+from state.logger import schedule_cleanup
 from models.database import TemplateDB
 
 app = FastAPI(title="Excel Chart Tool")
@@ -184,7 +184,7 @@ async def recommend(file_path: str = Form(...), sheet_name: str = Form(...), ref
     analysis = build_analysis(df)
 
     try:
-        from services.recommender import get_recommendations
+        from core.analysis.recommender import get_recommendations
         recs = get_recommendations(df, analysis, refine_prompt=refine_prompt)
     except Exception as e:
         recs = [
@@ -255,11 +255,11 @@ async def chat_endpoint(request: Request):
     """SSE streaming chat endpoint — natural language → chart generation."""
     global _chat_service
     if _chat_service is None:
-        from services.chat_service import ChatService
+        from core.chat_service import ChatService
         _chat_service = ChatService(state_manager, chart_builder)
         import builtins
         try:
-            with builtins.open("C:/Users/admin/Desktop/excel-chart-tool/logs/debug.log","a",encoding="utf-8") as f:
+            with builtins.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "debug.log"),"a",encoding="utf-8") as f:
                 f.write("[APP] ChatService initialized\n")
         except: pass
 
@@ -362,7 +362,7 @@ async def run_insights(
         df = _read_df(file_path, sheet_name).head(2000)  # cap for performance
 
         # Run engine
-        from services.insight_engine import InsightEngine
+        from core.analysis.insight_engine import InsightEngine
         engine = InsightEngine()
         result = engine.run(df, context={"file_path": file_path, "sheet_name": sheet_name})
 
@@ -431,7 +431,7 @@ async def export_chart(
 ):
     """Export chart as PNG/PDF/HTML."""
     import uuid
-    from services.exporter import export_png, export_pdf
+    from files.exporter import export_png, export_pdf
 
     export_id = uuid.uuid4().hex[:8]
 

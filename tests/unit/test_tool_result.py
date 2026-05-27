@@ -4,7 +4,7 @@ import json
 import time
 from dataclasses import asdict
 import pytest
-from services.tool_result import ToolResult, SSEEvent, normalize_tool_result, MAX_TOOL_PAYLOAD_KB
+from core.tool_result import ToolResult, SSEEvent, normalize_tool_result, MAX_TOOL_PAYLOAD_KB
 
 
 # ── ToolResult construction ────────────────────────────────────
