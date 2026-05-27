@@ -348,6 +348,7 @@ async def chat_endpoint(request: Request):
             theme=prefs.fav_color_scheme,
             chart_theme=prefs.theme,
             insight_context=insight_ctx,
+            profile=profile,  # v10
         ):
             yield f"event: {event['event']}\ndata: {json.dumps(event['data'], ensure_ascii=False)}\n\n"
 

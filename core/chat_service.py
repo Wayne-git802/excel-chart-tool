@@ -1134,6 +1134,7 @@ class ChatService:
         style_template: str = "clean",
         insights: list | None = None,
         insight_context: dict | None = None,
+        profile = None,  # v10: DatasetProfile from _profile_cache
     ) -> AsyncGenerator[dict, None]:
         """Routed chat: ConversationRouter → execution_mode → handler."""
         logger = SessionLogger(session_id)
@@ -1151,32 +1152,83 @@ class ChatService:
             yield {"event": "done", "data": {"latency_ms": 0, "steps": 0}}
             return
 
+        # ── v10 FilterContext ──
+        from core.ir.session import FilterContext as FCtx
+        fctx = state.filter_context if state.filter_context else FCtx()
+
+        # clear_filter route
+        if decision.route == "clear_filter":
+            fctx.clear()
+            state.filter_context = fctx
+            try: self.state_manager.save_state(state)
+            except Exception: pass
+            yield {"event": "narrative", "data": {"content": "已清除筛选条件，恢复全部数据。"}}
+            yield {"event": "done", "data": {"latency_ms": 0, "steps": 0}}
+            return
+
+        # Build + apply filter (only if we have profile + df)
+        if message and df is not None and not df.empty:
+            
+            if profile is not None:
+                try:
+                    from core.filtering.builder import FilterSpecBuilder
+                    from core.filtering.validator import validate_filter
+                    from core.filtering.executor import apply_filter
+
+                    # Wrap _call_llm to match FilterSpecBuilder's (system, user) → str signature
+                    async def _llm(sys: str, usr: str) -> str:
+                        content, _, _, _ = await self._call_llm(sys, usr, logger)
+                        return content
+
+                    builder = FilterSpecBuilder(_llm)
+                    fs = await builder.build(message, profile)
+                    if not fs.is_empty():
+                        failures = validate_filter(fs, profile)
+                        if failures:
+                            yield {"event": "error", "data": {"message": failures[0].message}}
+                            yield {"event": "done", "data": {"latency_ms": 0, "steps": 0}}
+                            return
+                        fctx.apply_new(fs)
+                        state.filter_context = fctx
+
+                    active_fs = fctx.active_filter()
+                    if active_fs and not active_fs.is_empty():
+                        result = apply_filter(df, active_fs)
+                        if hasattr(result, 'code'):  # ExplicitFailure
+                            yield {"event": "error", "data": {"message": result.message}}
+                            yield {"event": "done", "data": {"latency_ms": 0, "steps": 0}}
+                            return
+                        df = result  # filtered df
+                except Exception:
+                    pass  # filter failure is non-fatal
+
         # Dispatch by execution_mode
-        if decision.execution_mode == "single_reply":
-            async for event in self._handle_greeting(message, logger, t_start):
-                yield event
-        elif decision.execution_mode == "direct_tool":
-            async for event in self._handle_direct_tool(
-                message, df, state, decision, theme, chart_theme, style_template, logger, t_start
-            ):
-                yield event
-        else:  # react (analysis) — delegated to AnalysisOrchestrator
-            from core.analysis.orchestrator import AnalysisOrchestrator
-            from core.tool_result import SSEEvent as Evt
-            orchestrator = AnalysisOrchestrator(self.dispatcher, self.api_key, self.model)
-            async for evt in orchestrator.run(
-                message=message,
-                session_id=session_id,
-                state=state,
-                df=df,
-                theme=theme,
-                chart_theme=chart_theme,
-                style_template=style_template,
-            ):
-                if isinstance(evt, Evt):
-                    yield {"event": evt.type, "data": evt.payload}
-                else:
-                    yield evt  # backward compat for old-style dict events
+        try:
+            if decision.execution_mode == "single_reply":
+                async for event in self._handle_greeting(message, logger, t_start):
+                    yield event
+            elif decision.execution_mode == "direct_tool":
+                async for event in self._handle_direct_tool(
+                    message, df, state, decision, theme, chart_theme, style_template, logger, t_start
+                ):
+                    yield event
+            else:  # react (analysis)
+                from core.analysis.orchestrator import AnalysisOrchestrator
+                from core.tool_result import SSEEvent as Evt
+                orchestrator = AnalysisOrchestrator(self.dispatcher, self.api_key, self.model)
+                async for evt in orchestrator.run(
+                    message=message,
+                    session_id=session_id,
+                    state=state,
+                    df=df,
+                    theme=theme,
+                    chart_theme=chart_theme,
+                    style_template=style_template,
+                ):
+                    if isinstance(evt, Evt):
+                        yield {"event": evt.type, "data": evt.payload}
+                    else:
+                        yield evt
 
             # ── v10 Narrator: extract chart facts + narrate ──
             if state.execution_artifacts and df is not None:
@@ -1204,6 +1256,14 @@ class ChatService:
                         yield {'event': 'narration', 'data': {'content': narration_text}}
                 except Exception:
                     pass
+
+        finally:
+            # ── Clean up one_shot filter + persist state ──
+            if fctx and fctx.one_shot_filter:
+                fctx.one_shot_filter = None
+                state.filter_context = fctx
+            try: self.state_manager.save_state(state)
+            except Exception: pass
 
     # ── Handler: greeting ────────────────────────────────────
 
