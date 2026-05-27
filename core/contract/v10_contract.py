@@ -48,21 +48,36 @@ def _resolve_chart_type(
     return "bar", "fallback"
 
 
-def _select_columns(profile: ContextualProfile) -> tuple[str, list[str]]:
-    """Select x and y columns from profile. Deterministic, no LLM."""
-    # x: prefer temporal → categorical → numeric → first available
-    x_col = ""
-    if profile.temporal_cols:
-        x_col = profile.temporal_cols[0]
-    elif profile.categorical_cols:
-        x_col = profile.categorical_cols[0]
-    elif profile.numeric_cols:
-        x_col = profile.numeric_cols[0]
+def _select_columns(profile: ContextualProfile, chart_type: str = "bar") -> tuple[str, list[str]]:
+    """Select x and y columns from profile. Deterministic, no LLM.
     
-    # y: all numeric columns
-    y_cols = list(profile.numeric_cols)
+    Priority for x:
+      - scatter/bubble → numeric first (needs numeric axes)
+      - line/area → temporal > categorical > numeric
+      - bar/pie/boxplot/histogram → categorical > temporal > numeric
+    """
+    x_col = ""
+    
+    if chart_type in ("scatter", "bubble"):
+        # Scatter needs numeric x-axis
+        if len(profile.numeric_cols) >= 2:
+            x_col = profile.numeric_cols[0]
+        elif profile.temporal_cols:
+            x_col = profile.temporal_cols[0]
+        elif profile.categorical_cols:
+            x_col = profile.categorical_cols[0]
+    else:
+        # Default: temporal > categorical > numeric
+        if profile.temporal_cols:
+            x_col = profile.temporal_cols[0]
+        elif profile.categorical_cols:
+            x_col = profile.categorical_cols[0]
+        elif profile.numeric_cols:
+            x_col = profile.numeric_cols[0]
+    
+    # y: all numeric columns (exclude x if x is numeric)
+    y_cols = [c for c in profile.numeric_cols if c != x_col]
     if not y_cols and not x_col:
-        # Ultimate fallback: first column
         all_cols = list(profile.columns.keys())
         if all_cols:
             x_col = all_cols[0]
@@ -82,20 +97,7 @@ def resolve(
         contextual_hash="",  # TODO: hash contextual profile
     )
 
-    # Step 1: Column selection
-    x_col, y_cols = _select_columns(profile)
-    ledger.steps.append(DecisionStep(
-        stage="column_select",
-        rule_applied="temporal>categorical>numeric>fallback",
-        input_summary={
-            "temporal_cols": profile.temporal_cols,
-            "categorical_cols": profile.categorical_cols,
-            "numeric_cols": profile.numeric_cols,
-        },
-        output={"x": x_col, "y": y_cols},
-    ))
-
-    # Step 2: Chart type
+    # Step 1: Chart type (determine first so column selection can adapt)
     chart_type, because = _resolve_chart_type(profile, intent)
     decision_source = "explicit_user" if intent.explicit_chart else "profile_rule"
     if chart_type == "bar" and because == "fallback":
@@ -112,6 +114,20 @@ def resolve(
             "numeric_cols_count": len(profile.numeric_cols),
         },
         output=chart_type,
+    ))
+
+    # Step 2: Column selection (chart_type-aware)
+    x_col, y_cols = _select_columns(profile, chart_type)
+    ledger.steps.append(DecisionStep(
+        stage="column_select",
+        rule_applied=f"scatter_numeric_first" if chart_type in ("scatter","bubble") else "temporal>categorical>numeric",
+        input_summary={
+            "temporal_cols": profile.temporal_cols,
+            "categorical_cols": profile.categorical_cols,
+            "numeric_cols": profile.numeric_cols,
+            "chart_type": chart_type,
+        },
+        output={"x": x_col, "y": y_cols},
     ))
 
     if not x_col or not y_cols:
