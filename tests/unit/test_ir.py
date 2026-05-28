@@ -115,14 +115,18 @@ class TestChartFacts:
     def test_roundtrip(self):
         cf = ChartFacts(chart_type="line", x_label="日期", y_labels=["销售额"],
                         row_count=50, filter_description="(全部数据)",
-                        trend_direction="upward", peak_point=("2025-07", 46961),
+                        trend_direction="upward",
+                        entity_ids_used=["e_001", "e_002"],
+                        peak_entity_id="e_002", peak_value=46961,
                         stats={"销售额": {"mean": 27000, "median": 25000}},
                         decision_source="profile_rule")
         d = cf.to_dict()
         assert json.dumps(d)
         restored = ChartFacts.from_dict(d)
         assert restored.trend_direction == "upward"
-        assert restored.peak_point == ("2025-07", 46961)
+        assert restored.peak_entity_id == "e_002"
+        assert restored.peak_value == 46961
+        assert restored.entity_ids_used == ["e_001", "e_002"]
 
 
 class TestDecisionLedger:

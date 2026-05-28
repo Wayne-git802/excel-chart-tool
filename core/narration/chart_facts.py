@@ -1,6 +1,8 @@
 """ChartFactsExtractor — deterministic fact extraction from chart result + profile.
 
-Produces ChartFacts IR. Every field has a precise algorithm.
+Produces ChartFacts IR with symbolic entity references (entity IDs only).
+Entity labels live in EntityRegistry — never leak into ChartFacts.
+
 LLM never touches this module.
 """
 
@@ -8,15 +10,19 @@ from __future__ import annotations
 
 import pandas as pd
 
-from core.ir.narration import ChartFacts
-from core.ir.contract import ChartDecision, FilterSpec
+from core.ir.narration import ChartFacts, ComparisonFact
+from core.ir.contract import ChartDecision
 from core.ir.profile import ContextualProfile
+from core.ir.entity import EntityRegistry
 from core.narration.trend_rules import detect_trend
 from core.narration.comparison_rules import find_peak, compare_groups
 
 
 class ChartFactsExtractor:
-    """Extract deterministic facts from chart execution result."""
+    """Extract deterministic facts from chart execution result.
+
+    All entity references in the output are symbolic (entity IDs).
+    """
 
     @staticmethod
     def extract(
@@ -24,9 +30,14 @@ class ChartFactsExtractor:
         profile: ContextualProfile,
         df: pd.DataFrame,
     ) -> ChartFacts:
-        """ChartDecision + ContextualProfile + filtered df → ChartFacts."""
+        """ChartDecision + ContextualProfile + filtered df → ChartFacts (symbolic)."""
 
-        # Filter description
+        # ── Entity Registry ──────────────────────────────────
+        registry = EntityRegistry.build(df, decision.x_column) if decision.x_column in df.columns \
+            else EntityRegistry(mapping={}, id_column=decision.x_column)
+        label_to_id = {v: k for k, v in registry.mapping.items()}
+
+        # ── Filter description ───────────────────────────────
         if profile.filter_applied and profile.filter_spec:
             fd_parts = []
             for c in profile.filter_spec.conditions:
@@ -38,7 +49,7 @@ class ChartFactsExtractor:
         else:
             filter_description = "(全部数据)"
 
-        # Trend direction (for y_cols[0])
+        # ── Trend direction (for y_cols[0]) ──────────────────
         trend_direction = None
         if decision.y_columns and decision.x_column in df.columns:
             y_col = decision.y_columns[0]
@@ -49,32 +60,48 @@ class ChartFactsExtractor:
                 except Exception:
                     pass
 
-        # Peak point
-        peak_point = None
+        # ── Peak point (symbolic) ────────────────────────────
+        peak_entity_id = None
+        peak_value = None
         if decision.y_columns and decision.x_column in df.columns:
             y_col = decision.y_columns[0]
             if y_col in df.columns:
                 try:
                     x_vals = df[decision.x_column].tolist()
                     y_vals = df[y_col].tolist()
-                    peak_point = find_peak(x_vals, y_vals)
+                    peak_raw = find_peak(x_vals, y_vals)
+                    if peak_raw:
+                        raw_label, raw_y = peak_raw
+                        peak_entity_id = label_to_id.get(str(raw_label))
+                        peak_value = raw_y
                 except Exception:
                     pass
 
-        # Comparison (for filter with exactly 2 groups)
-        comparison = None
+        # ── Comparisons (symbolic) ───────────────────────────
+        comparisons: list[ComparisonFact] = []
         if profile.filter_applied and profile.filter_spec:
             for c in profile.filter_spec.conditions:
                 if c.operator == "in" and isinstance(c.value, list) and len(c.value) == 2:
                     if decision.y_columns and decision.x_column in df.columns:
                         try:
-                            comparison = compare_groups(
+                            raw_comp = compare_groups(
                                 df, c.column, decision.y_columns[0], c.value
                             )
+                            if raw_comp:
+                                left_id = label_to_id.get(raw_comp.a_label)
+                                right_id = label_to_id.get(raw_comp.b_label)
+                                if left_id and right_id:
+                                    comparisons.append(ComparisonFact(
+                                        left_entity_id=left_id,
+                                        right_entity_id=right_id,
+                                        metric=decision.y_columns[0],
+                                        ratio=raw_comp.ratio,
+                                        direction=raw_comp.direction,
+                                    ))
                         except Exception:
                             pass
 
-        # Stats
+        # ── Stats ────────────────────────────────────────────
         stats: dict[str, dict] = {}
         for yc in decision.y_columns:
             if yc in df.columns:
@@ -95,9 +122,11 @@ class ChartFactsExtractor:
             y_labels=decision.y_columns,
             row_count=profile.row_count,
             filter_description=filter_description,
+            entity_ids_used=list(registry.mapping.keys()),
             trend_direction=trend_direction,
-            peak_point=peak_point,
-            comparison=comparison,
+            peak_entity_id=peak_entity_id,
+            peak_value=peak_value,
+            comparisons=comparisons,
             stats=stats,
             decision_source=decision.decision_source,
         )

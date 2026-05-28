@@ -40,6 +40,7 @@ from core.chart.builder import ChartBuilder
 from state.manager import StateManager
 from core.routing import ConversationRouter
 from core.routing.planner import plan_chart
+from core.context_builder import ConversationContext
 
 # ═══════════════════════════════════════════════════════════════
 # Constants
@@ -1218,6 +1219,16 @@ class ChatService:
             else:  # react (analysis)
                 from core.analysis.orchestrator import AnalysisOrchestrator
                 from core.tool_result import SSEEvent as Evt
+
+                # ── T5: Build ConversationContext for prompt injection ──
+                original_row_count = state.row_count  # captured before any filtering
+                conversation_ctx = ConversationContext.build(
+                    state=state,
+                    df=df,
+                    original_row_count=original_row_count,
+                    prev_user_message=message,  # becomes "last turn" for context
+                )
+
                 orchestrator = AnalysisOrchestrator(self.dispatcher, self.api_key, self.model)
                 async for evt in orchestrator.run(
                     message=message,
@@ -1227,24 +1238,27 @@ class ChatService:
                     theme=theme,
                     chart_theme=chart_theme,
                     style_template=style_template,
+                    conversation_ctx=conversation_ctx,
                 ):
                     if isinstance(evt, Evt):
                         yield {"event": evt.type, "data": evt.payload}
                     else:
                         yield evt
 
-            # ── v10 Narrator: extract chart facts + narrate ──
+            # ── v10 Narrator: extract chart facts + narrate (symbolic) ──
             if state.execution_artifacts and df is not None:
                 try:
                     from core.narration.chart_facts import ChartFactsExtractor
-                    from core.narration.narrator import Narrator
+                    from core.narration.narrator import Narrator, post_render
                     from core.ir.contract import ChartDecision
+                    from core.ir.narration import NarrationContext
+                    from core.ir.entity import EntityRegistry
                     from core.profiling.profiler import DataProfiler
                     from core.profiling.transformer import StateTransformer
 
                     last_artifact = state.execution_artifacts[-1]
                     profile = DataProfiler.enhance(state.columns, df)
-                    ctx = StateTransformer.transform(profile, None, df)
+                    ctx_profile = StateTransformer.transform(profile, None, df)
                     decision = ChartDecision(
                         chart_type=last_artifact.chart_type,
                         x_column=last_artifact.x_column,
@@ -1252,9 +1266,17 @@ class ChatService:
                         title=last_artifact.title,
                         decision_source='profile_rule',
                     )
-                    facts = ChartFactsExtractor.extract(decision, ctx, df)
-                    narrator = Narrator(lambda s, q: '')
-                    narration_text = narrator._fallback_narrate(facts)
+                    # Extract symbolic facts (entity IDs only, no labels)
+                    facts = ChartFactsExtractor.extract(decision, ctx_profile, df)
+                    # Build registry for post_render
+                    registry = EntityRegistry.build(df, decision.x_column) if decision.x_column in df.columns \
+                        else EntityRegistry(mapping={}, id_column=decision.x_column)
+                    nar_ctx = NarrationContext(registry=registry, facts=facts)
+                    # Template narration (deterministic, no LLM hallucination)
+                    narrator = Narrator()
+                    symbolic_text = narrator.narrate(nar_ctx)
+                    # Resolve [[entity:e_XXX]] → real labels
+                    narration_text = post_render(symbolic_text, nar_ctx)
                     if narration_text:
                         yield {'event': 'narration', 'data': {'content': narration_text}}
                 except Exception:

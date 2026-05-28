@@ -23,6 +23,7 @@ from core.planning.pruner import PlanPruner
 from core.planning.budget import BudgetController
 from core.contract.guard import ExecutionGuard
 from core.chart.selector import select_chart_type_with_context, select_chart_type
+from core.context_builder import ConversationContext
 
 API_URL = "https://api.deepseek.com/chat/completions"
 DEFAULT_MODEL = "deepseek-chat"
@@ -127,6 +128,7 @@ class AnalysisOrchestrator:
         theme: str = "business",
         chart_theme: str = "light",
         style_template: str = "clean",
+        conversation_ctx: ConversationContext | None = None,
     ) -> AsyncGenerator[SSEEvent, None]:
         _dl2 = _bi2
         try:
@@ -151,7 +153,7 @@ class AnalysisOrchestrator:
         state.analysis_trace = []
         state.set_plan([])
 
-        plan = await self._generate_plan(message, df, state, logger)
+        plan = await self._generate_plan(message, df, state, logger, conversation_ctx)
         if not plan:
             yield SSEEvent(type="error", payload={"message": "无法生成分析计划"})
             yield SSEEvent(type="done", payload={"latency_ms": 0, "steps": 0})
@@ -295,7 +297,7 @@ class AnalysisOrchestrator:
                         })
 
                     # LLM narrative — describe data, NOT chart type
-                    narrative = await self._narrate(ce_result, df, state, message, logger)
+                    narrative = await self._narrate(ce_result, df, state, message, logger, conversation_ctx)
                     if narrative and not _is_narrative_dup(narrative, prev_narrative):
                         yield SSEEvent(type="narrative", payload={"content": narrative})
                         prev_narrative = narrative
@@ -393,7 +395,8 @@ class AnalysisOrchestrator:
     # ── Plan Generation ───────────────────────────────────────
 
     async def _generate_plan(
-        self, message: str, df: pd.DataFrame, state: AgentState, logger: SessionLogger
+        self, message: str, df: pd.DataFrame, state: AgentState, logger: SessionLogger,
+        conversation_ctx: ConversationContext | None = None,
     ) -> list[PlanStep]:
         col_info = []
         for c in state.columns:
@@ -407,11 +410,36 @@ class AnalysisOrchestrator:
         chart_ctx = select_chart_type_with_context(state.columns, message)
         selected_chart = chart_ctx["chart_type"]
 
+        # ── v10: Feasible analyses from profile ──
+        analyses_hint = ""
+        try:
+            from core.semantic.analyzer import feasible_analyses
+            from core.profiling.profiler import DataProfiler
+            profile = DataProfiler.enhance(state.columns, df)
+            candidates = feasible_analyses(profile)
+            if candidates:
+                lines = ["**可用的分析方向**（系统自动发现）:"]
+                for i, c in enumerate(candidates[:5]):
+                    label = {"trend": "趋势", "comparison": "对比", "correlation": "相关性", "distribution": "分布"}.get(c["type"], c["type"])
+                    lines.append(f"  {i+1}. {label}: {c.get('x','')} → {c.get('y','')} ({c['confidence']:.2f})")
+                analyses_hint = "\n".join(lines) + "\n"
+        except Exception:
+            pass
+
         # chart_hint is system-generated — LLM must NOT output or discuss it
+        # ── ConversationContext injection (T2: full layers) ──
+        ctx_prefix = ""
+        if conversation_ctx is not None:
+            ctx_sections = conversation_ctx.to_prompt_sections("full")
+            if ctx_sections:
+                ctx_prefix = "\n".join(ctx_sections) + "\n\n"
+
         system_prompt = (
+            ctx_prefix +
             "你是数据分析计划生成器。根据用户问题和数据列信息，生成 1-3 步分析计划。\n\n"
             f"**数据列**:\n{columns_str}\n"
             f"**行数**: {len(df) if df is not None else 0}\n"
+            f"{analyses_hint}"
             f"{trace_summary}\n"
             "**可用工具**: chart_builder (图表), data_query (统计查询), annotation_engine (综合结论)\n\n"
             "输出严格的 JSON，包含 steps 数组：\n"
@@ -543,7 +571,8 @@ class AnalysisOrchestrator:
     # ── Narrative ─────────────────────────────────────────────
 
     async def _narrate(
-        self, ce_result: dict, df, state, message: str, logger
+        self, ce_result: dict, df, state, message: str, logger,
+        conversation_ctx: ConversationContext | None = None,
     ) -> str:
         """Generate narrative from contract output. Contract is the sole authority.
 
@@ -563,13 +592,23 @@ class AnalysisOrchestrator:
         if status == "rejected":
             return ""
 
+        # ── ConversationContext injection (T3: filter + dataset) ──
+        ctx_prefix = ""
+        display_row_count = state.row_count
+        if conversation_ctx is not None:
+            ctx_sections = conversation_ctx.to_prompt_sections("filter") + conversation_ctx.to_prompt_sections("dataset")
+            if ctx_sections:
+                ctx_prefix = "\n".join(ctx_sections) + "\n\n"
+            display_row_count = conversation_ctx.dataset.filtered_rows
+
         # Approved
         col_desc = ", ".join(y_cols) if y_cols else "无"
         prompt = (
+            ctx_prefix +
             f"图表类型已由系统确定为 {chart_type}。"
             f"X 轴: {x_col}。Y 轴: {col_desc}。"
             f"选择原因: {'; '.join(explanation[:2])}。"
-            f"数据共 {state.row_count} 行。\n\n"
+            f"数据共 {display_row_count} 行。\n\n"
             "你的职责：描述数据中可能存在的规律或发现，1-2 句话。\n\n"
             "规则：\n"
             "- 不要推荐或讨论图表类型（已确定）\n"
@@ -592,11 +631,21 @@ class AnalysisOrchestrator:
     # ── Synthesis ─────────────────────────────────────────────
 
     async def _synthesize(
-        self, state: AgentState, message: str, tools_used: list[str], logger: SessionLogger
+        self, state: AgentState, message: str, tools_used: list[str], logger: SessionLogger,
+        conversation_ctx: ConversationContext | None = None,
     ) -> str:
         if not tools_used:
             return "分析完成。"
+
+        # ── ConversationContext injection (T4: filter + analysis) ──
+        ctx_prefix = ""
+        if conversation_ctx is not None:
+            ctx_sections = conversation_ctx.to_prompt_sections("filter") + conversation_ctx.to_prompt_sections("analysis")
+            if ctx_sections:
+                ctx_prefix = "\n".join(ctx_sections) + "\n\n"
+
         prompt = (
+            ctx_prefix +
             "根据已执行的分析步骤，用1-2句话总结关键发现。直接给出结论，不要客套话。\n\n"
             f"用户问题: {message}\n"
             f"使用工具: {', '.join(tools_used)}\n"
