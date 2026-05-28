@@ -160,3 +160,61 @@ async def get_chart(sid: str):
         "data": df.to_dict("records"),
         "row_count": _backend.row_count(df),
     })
+
+
+@router.post("/sessions/{sid}/chat")
+async def chat(sid: str, request: Request):
+    """Natural language → intent → operation → apply.
+
+    Body: {"message": "只看2020年之后的"}
+    """
+    entry = _sessions.get(sid)
+    if entry is None:
+        return JSONResponse({"ok": False, "error": "会话不存在"}, status_code=404)
+
+    _file_key, base_df, columns_info, state = entry
+
+    try:
+        body = await request.json()
+        message = body.get("message", "").strip()
+        if not message:
+            return JSONResponse({"ok": False, "error": "缺少 message"}, status_code=400)
+    except Exception:
+        return JSONResponse({"ok": False, "error": "无效的请求体"}, status_code=400)
+
+    # 1. Classify intent (LLM)
+    from core.v2.engine.classifier import classify
+    intent = await classify(message, columns_info, len(base_df), state.view_spec)
+    if intent.action == "unknown":
+        return JSONResponse({
+            "ok": False,
+            "error": "无法理解您的意图。请尝试更具体的描述，如'只看前三个'、'按销售额排序'、'换成饼图'",
+            "intent": intent.action,
+        })
+
+    # 2. Map intent to operation (deterministic)
+    from core.v2.engine.intent_mapper import map_intent_to_op
+    op = map_intent_to_op(intent, columns_info)
+    if op is None:
+        return JSONResponse({
+            "ok": False,
+            "error": "无法将您的意图映射到数据操作。请确认列名是否正确。",
+            "intent": intent.action,
+            "raw": {
+                "column": intent.raw_column,
+                "constraint": intent.raw_constraint,
+            },
+        })
+
+    # 3. Validate + apply
+    from core.v2.engine.validator import validate_op
+    ok, error = validate_op(op, [c.name for c in columns_info])
+    if not ok:
+        return JSONResponse({
+            "ok": False,
+            "error": error,
+            "intent": intent.action,
+        })
+
+    result = state.apply_operation(op, base_df, columns_info, _backend)
+    return JSONResponse(result)
