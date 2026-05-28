@@ -8,16 +8,9 @@ Determinism requirement:
 from __future__ import annotations
 
 import json
-from ..ir.operations import FilterOp, SortOp, LimitOp, ChartPatchOp, Operation
+from ..ir.operations import FilterOp, SortOp, LimitOp, ChartPatchOp, Operation, OP_MAP
 
-_OP_MAP: dict[str, type] = {
-    "FilterOp": FilterOp,
-    "SortOp": SortOp,
-    "LimitOp": LimitOp,
-    "ChartPatchOp": ChartPatchOp,
-}
-
-_OPS_BY_TYPE: dict[type, str] = {v: k for k, v in _OP_MAP.items()}
+_OPS_BY_TYPE: dict[type, str] = {v: k for k, v in OP_MAP.items()}
 
 _SKIP_FIELDS = {"op_id", "op_version", "op_class"}
 
@@ -43,7 +36,7 @@ def json_to_ops(j: str) -> tuple[Operation, ...]:
     items = json.loads(j)
     ops = []
     for item in items:
-        cls = _OP_MAP[item.pop("type")]
+        cls = OP_MAP[item.pop("type")]
         if "y_columns" in item and isinstance(item["y_columns"], list):
             item["y_columns"] = tuple(item["y_columns"])
         ops.append(cls(**item))

@@ -78,3 +78,13 @@ class ChartPatchOp:
 # ── Union type ───────────────────────────────
 
 Operation = FilterOp | SortOp | LimitOp | ChartPatchOp
+
+
+# ── Op type registry (single source of truth) ─
+
+OP_MAP: dict[str, type] = {
+    "FilterOp": FilterOp,
+    "SortOp": SortOp,
+    "LimitOp": LimitOp,
+    "ChartPatchOp": ChartPatchOp,
+}
