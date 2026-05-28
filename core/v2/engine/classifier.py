@@ -59,10 +59,13 @@ RULES:
 6. raw_chart_type/raw_x/raw_y: only fill if user asks to change the chart.
 7. action: choose from "filter", "sort", "limit", "chart", "unknown".
    - "只看前三个" → action="limit", raw_n="3"
-   - "按销售额从高到低排序" → action="sort", raw_column="销售额", raw_direction="desc"
+   - "按年龄从大到小排序" → action="sort", raw_column="年龄", raw_direction="desc"
    - "只看2020年之后的" → action="filter", raw_column="年份", raw_constraint="2020年之后"
    - "换成饼图" → action="chart", raw_chart_type="饼图"
    - "帮我分析趋势" → action="unknown"
+
+IMPORTANT: raw_column must be EXACTLY what the user said — never substitute.
+The system will fuzzy-match raw_column against actual column names.
 
 Output ONLY valid JSON, no explanation, no markdown fences.
 """
