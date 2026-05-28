@@ -16,8 +16,12 @@ from core.chart.builder import ChartBuilder
 from state.manager import StateManager
 from state.logger import schedule_cleanup
 from models.database import TemplateDB
+from core.v2.api import router as v2_router
 
 app = FastAPI(title="Excel Chart Tool")
+
+# Register v2 conversational API
+app.include_router(v2_router)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 os.makedirs(os.path.join(BASE_DIR, "uploads"), exist_ok=True)
