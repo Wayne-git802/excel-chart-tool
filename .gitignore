@@ -9,3 +9,28 @@ data/uploads/*
 .claude/
 node_modules/
 .env
+
+# Virtual environment
+.venv/
+venv/
+
+# Data files (DBs, uploads, test data)
+data/*.db
+data/*.xlsx
+data/*.csv
+uploads/
+
+# Test artifacts
+static/test_*.html
+static/verify_*.html
+static/_verify_*.json
+tests/manual/
+
+# Node (not used)
+package.json
+package-lock.json
+
+# Temp files
+启动服务.bat
+docs/prompt.txt
+docs/task_contract_kernel.txt
